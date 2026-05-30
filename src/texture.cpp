@@ -4,8 +4,27 @@
 #include <utility>
 
 Texture::Texture(const std::string& path, GLenum wrapMode) {
-    stbi_set_flip_vertically_on_load(true);
+    bool isHdr = path.size() >= 4 && path.substr(path.size() - 4) == ".hdr";
 
+    if (isHdr) {
+        stbi_set_flip_vertically_on_load(false);
+        int w, h, ch;
+        float* data = stbi_loadf(path.c_str(), &w, &h, &ch, 3);
+        if (!data)
+            throw std::runtime_error("HDR load failed: " + path + " — " + stbi_failure_reason());
+        glGenTextures(1, &m_id);
+        glBindTexture(GL_TEXTURE_2D, m_id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        stbi_image_free(data);
+        return;
+    }
+
+    stbi_set_flip_vertically_on_load(true);
     int w, h, channels;
     unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 0);
     if (!data)

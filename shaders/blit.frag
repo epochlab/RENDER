@@ -3,5 +3,7 @@ in vec2 vUV;
 uniform sampler2D uFrame;
 out vec4 FragColor;
 void main() {
-    FragColor = texture(uFrame, vUV);
+    vec3 hdr = texture(uFrame, vUV).rgb;
+    vec3 ldr = hdr / (hdr + vec3(1.0));  // Reinhard tonemapping
+    FragColor = vec4(ldr, 1.0);
 }

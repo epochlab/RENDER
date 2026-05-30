@@ -1,5 +1,6 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <mach/mach.h>
 #include <iostream>
 #include <stdexcept>
@@ -50,7 +51,7 @@ struct RenderTarget {
 
         glGenTextures(1, &colorTex);
         glBindTexture(GL_TEXTURE_2D, colorTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex, 0);
@@ -74,8 +75,8 @@ struct RenderTarget {
         if (w != width || h != height) { destroy(); create(width, height); }
     }
 
-    // Tracked allocation: RGB8 colour (3B) + DEPTH24 in a 4B/texel renderbuffer.
-    size_t bytes() const { return static_cast<size_t>(w) * h * (3 + 4); }
+    // Tracked allocation: RGB16F colour (6B) + DEPTH24 in a 4B/texel renderbuffer.
+    size_t bytes() const { return static_cast<size_t>(w) * h * (6 + 4); }
 };
 
 int main() {
@@ -100,12 +101,17 @@ int main() {
         blitShader.use();
         blitShader.set("uFrame", 0);
 
+        Shader skyShader("shaders/sky.vert", "shaders/sky.frag");
+        skyShader.use();
+        skyShader.set("uSkyHDR", 0);
+
         Camera camera({0.0f, 1.0f, 10.0f}, win.aspectRatio());
         g_camera = &camera;
 
         HUD hud(win.handle());
 
-        Model rock = Model::loadGLTF("assets/geo/rock_shopk_gltf_high/Rock_shopk_High.gltf");
+        Texture skyTex("assets/hdr/HDR_111_Parking_Lot_2_Env.hdr");
+        Model   rock = Model::loadGLTF("assets/geo/rock_shopk_gltf_high/Rock_shopk_High.gltf");
 
         // Empty VAO for fullscreen blit (no VBO — blit.vert uses gl_VertexID)
         GLuint blitVAO = 0;
@@ -191,6 +197,18 @@ int main() {
 
             glBeginQuery(GL_TIME_ELAPSED, gpuQueries[queryWrite]);
 
+            // ── Sky (depth mask off so it never occludes geometry) ─
+            glDepthMask(GL_FALSE);
+            skyShader.use();
+            skyShader.set("uInvVP", glm::inverse(proj * view));
+            skyTex.bind(0);
+            glBindVertexArray(blitVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            glBindVertexArray(0);
+            glDepthMask(GL_TRUE);
+            shader.use();  // restore scene shader
+
+            // ── Rock model ─────────────────────────────────────────
             int drawn = 0, total = 1;
 
             glm::vec3 rockCentre = glm::vec3(mRock * glm::vec4(rock.centre(), 1.0f));

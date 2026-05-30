@@ -4,7 +4,7 @@ A 3D render engine built from scratch in C++ with OpenGL.
 
 ## Status
 
-**Milestone 5 — glTF Geometry Loading** (in progress)
+**Milestone 6 — HDRI Equirectangular Skydome** (in progress)
 
 ## Requirements
 
@@ -80,7 +80,8 @@ src/
 └── cgltf_impl.cpp  — cgltf single-header implementation unit
 shaders/
 ├── basic.vert/frag — MVP transform, 6 view modes
-└── blit.vert/frag  — fullscreen upscale blit
+├── sky.vert/frag   — equirectangular HDRI skydome
+└── blit.vert/frag  — fullscreen blit with Reinhard tonemapping
 ```
 
 ## Roadmap
@@ -91,8 +92,8 @@ shaders/
 | 2 | Texture Loading — stb_image, UV coords, Mesh::sphere() | ✓ done |
 | 3 | Debug HUD — Dear ImGui overlay, 6 view modes, FBO render scale | ✓ done |
 | 4 | Optimisation — smooth FPS, non-stalling GPU timer, GPU-mem tracking, uniform batching, frustum culling | ✓ done |
-| 5 | Geometry Loading — glTF 2.0 (cgltf): meshes, materials, textures, scene hierarchy | in progress |
-| 6 | HDRI Skydome — equirectangular HDR sky, HDRI-driven ambient | planned |
+| 5 | Geometry Loading — glTF 2.0 (cgltf): meshes, materials, textures, scene hierarchy | ✓ done |
+| 6 | HDRI Skydome — equirectangular HDR sky, Reinhard tonemapping, RGB16F FBO | in progress |
 | 7 | PBR Shader / Material System — Cook-Torrance BRDF, IBL | planned |
 | 8 | Camera & Lens Effects — HDR framebuffer, tone mapping, bloom, DoF | planned |
 | 9 | Advanced — OpenEXR I/O, Alembic geometry caches | planned |

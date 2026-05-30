@@ -4,7 +4,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — Milestone 5: glTF Geometry Loading
+## [Unreleased] — Milestone 6: HDRI Equirectangular Skydome
+
+- Equirectangular HDR sky rendered as fullscreen triangle before geometry (depth mask off)
+- World-space direction reconstructed per-pixel via `inverse(proj * view)` uniform
+- HDR texture loading in `Texture`: detects `.hdr` extension → `stbi_loadf` + `GL_RGB16F`, no flip, no mipmaps
+- FBO colour buffer upgraded `GL_RGB8` → `GL_RGB16F` to preserve HDR range through the render pass
+- Reinhard tonemapping added to `blit.frag` (replaces raw passthrough); M8 will extend this
+
+---
+
+## [M5 — Geometry Loading] — 2026-05-30
 
 - Load glTF 2.0 files via cgltf v1.14 (header-only, MIT): parse + buffer load + validate
 - New `Model` class: walks scene node hierarchy, accumulates transforms, builds `Mesh` per primitive
