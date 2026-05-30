@@ -2,8 +2,6 @@
 #include <cgltf.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <stdexcept>
-#include <cstring>
-#include <cmath>
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -166,10 +164,7 @@ Model Model::loadGLTF(const std::string& path) {
     if (model.m_submeshes.empty())
         throw std::runtime_error("cgltf: no renderable primitives found in " + path);
 
-    // Bounding sphere from the first submesh's mesh bounding radius + centre.
-    // Since the node transform is not yet applied, we work in model space and
-    // let draw() apply the transform as the model matrix.
-    // Approximate: use the first submesh's bounding radius.
+    // Bounding sphere in model space (transform applied as model matrix at draw time).
     model.m_boundingRadius = model.m_submeshes[0].mesh.boundingRadius();
     model.m_centre         = glm::vec3(0.0f);
 

@@ -32,7 +32,7 @@ void main() {
         FragColor = vec4(normalize(vNormal) * 0.5 + 0.5, 1.0);
 
     } else if (uViewMode == 6) {
-        // UV coordinates — fract so tiled surfaces show per-tile [0,1] gradient
+        // UV coordinates
         FragColor = vec4(fract(vUV), 0.0, 1.0);
 
     } else {

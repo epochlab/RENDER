@@ -1,6 +1,5 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <mach/mach.h>
 #include <iostream>
 #include <stdexcept>
@@ -222,14 +221,14 @@ int main() {
             // ── Collect stats ──────────────────────────────────────
             float rawFps = (dt > 0.0f) ? 1.0f / dt : 0.0f;
             smoothFps    = (smoothFps == 0.0f) ? rawFps : smoothFps * 0.9f + rawFps * 0.1f;
-            stats.fps            = rawFps;       // raw, for the history plot
-            stats.fpsSmooth      = smoothFps;    // EMA, headline number
-            stats.frameTimeMs    = dt * 1000.0f;
+            stats.fps         = rawFps;
+            stats.fpsSmooth   = smoothFps;
+            stats.frameTimeMs = dt * 1000.0f;
             stats.frameCap       = FRAME_CAP;
             stats.memMB          = queryMemoryMB();
-            stats.gpuAllocMB      = static_cast<float>(rt.bytes()) / (1024.0f * 1024.0f);
-            stats.drawCalls       = drawn;
-            stats.drawCallsTotal  = total;
+            stats.gpuAllocMB     = static_cast<float>(rt.bytes()) / (1024.0f * 1024.0f);
+            stats.drawCalls      = drawn;
+            stats.drawCallsTotal = total;
             stats.drawCallsCulled = total - drawn;
             stats.totalTriangles  = rock.triangleCount();
             stats.totalVertices   = rock.vertexCount();
