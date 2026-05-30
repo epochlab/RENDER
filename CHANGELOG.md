@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased] — Milestone 2: Texture Loading
+
+### Added
+- `Texture` class: load PNG/JPG/TGA via `stb_image`, upload to GL, mipmaps, repeat wrapping, linear-mip filtering; `Texture::white()` factory for untextured objects
+- `Mesh::sphere(stacks, slices)`: UV-sphere geometry factory
+- UV coords (`u`, `v`) added to `Vertex` struct; cube, plane, sphere all carry correct UVs
+- `Shader::set(name, int)` overload for binding texture samplers
+- `shaders/basic.vert`: passes UV through to fragment stage
+- `shaders/basic.frag`: samples `uAlbedo` sampler2D; albedo drives base colour
+- `assets/textures/checker.png`: 64×64 grey checkerboard test texture
+- `external/stb/stb_image.h`: committed single-header stb_image (public domain)
+- Scene updated: spinning textured cube + textured sphere, white ground plane
+
+---
+
 ## [M1 — Hello 3D World] — 2026-05-30
 
 ### Added

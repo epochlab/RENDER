@@ -33,9 +33,11 @@ add_executable(renderer
     src/shader.cpp
     src/camera.cpp
     src/mesh.cpp
+    src/texture.cpp
+    external/stb/stb_image.cpp
 )
 
-target_include_directories(renderer PRIVATE src)
+target_include_directories(renderer PRIVATE src external/stb)
 
 target_compile_definitions(renderer PRIVATE
     GL_SILENCE_DEPRECATION

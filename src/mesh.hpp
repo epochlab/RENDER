@@ -5,6 +5,7 @@
 struct Vertex {
     float x, y, z;
     float nx, ny, nz;
+    float u, v;
 };
 
 class Mesh {
@@ -21,6 +22,7 @@ public:
 
     static Mesh cube();
     static Mesh plane(float size = 10.0f);
+    static Mesh sphere(int stacks = 32, int slices = 32);
 
 private:
     GLuint  m_vao, m_vbo, m_ebo;
