@@ -1,0 +1,29 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "dev",
+            "displayName": "Dev",
+            "binaryDir": "${sourceDir}/build/dev",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "dev",
+            "configurePreset": "dev"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "dev",
+            "configurePreset": "dev",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
+}

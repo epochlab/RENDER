@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cmake:*)",
+      "Bash(ctest:*)",
+      "Bash(pytest:*)",
+      "Bash(pip:*)",
+      "Bash(conda:*)",
+      "Bash(brew:*)",
+      "Bash(ruff:*)",
+      "Bash(mypy:*)",
+      "Bash(clang-tidy:*)",
+      "Bash(clang-format:*)",
+      "Bash(git:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)"
+    ]
+  }
+}
