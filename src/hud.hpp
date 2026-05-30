@@ -12,9 +12,11 @@ struct FrameStats {
     int       totalVertices  = 0;
     int       width          = 0;
     int       height         = 0;
-    glm::vec3 camPos         = {};
-    float     camYaw         = 0.0f;
-    float     camPitch       = 0.0f;
+    glm::vec3   camPos         = {};
+    float       camYaw         = 0.0f;
+    float       camPitch       = 0.0f;
+    int         viewMode       = 1;
+    const char* viewModeName   = "Diffuse";
 };
 
 class HUD {

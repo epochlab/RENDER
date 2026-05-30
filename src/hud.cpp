@@ -49,6 +49,13 @@ void HUD::draw(FrameStats& s) {
 
     if (ImGui::Begin("##hud", nullptr, flags)) {
 
+        // ── View mode ─────────────────────────────────────────
+        ImGui::TextColored({0.4f, 0.8f, 1.0f, 1.0f}, "View");
+        ImGui::Separator();
+        ImGui::Text("[%d] %s", s.viewMode, s.viewModeName);
+
+        ImGui::Spacing();
+
         // ── Frame ─────────────────────────────────────────────
         ImGui::TextColored({0.4f, 0.8f, 1.0f, 1.0f}, "Frame");
         ImGui::Separator();

@@ -14,9 +14,11 @@ public:
     void processInput(GLFWwindow* window, float dt);
     void processMouseMove(double xpos, double ypos);
 
-    glm::vec3 position() const { return m_pos; }
-    float yaw()          const { return m_yaw; }
-    float pitch()        const { return m_pitch; }
+    glm::vec3 position()  const { return m_pos; }
+    float yaw()           const { return m_yaw; }
+    float pitch()         const { return m_pitch; }
+    float nearPlane()     const { return m_near; }
+    float farPlane()      const { return m_far; }
 
     float moveSpeed        = 5.0f;
     float mouseSensitivity = 0.1f;
