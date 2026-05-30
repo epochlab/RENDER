@@ -50,8 +50,8 @@ void Camera::processInput(GLFWwindow* window, float dt) {
     if (glfwGetKey(window, GLFW_KEY_S)           == GLFW_PRESS) m_pos -= f * spd;
     if (glfwGetKey(window, GLFW_KEY_A)           == GLFW_PRESS) m_pos -= r * spd;
     if (glfwGetKey(window, GLFW_KEY_D)           == GLFW_PRESS) m_pos += r * spd;
-    if (glfwGetKey(window, GLFW_KEY_SPACE)       == GLFW_PRESS) m_pos.y += spd;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) m_pos.y -= spd;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) m_pos.y += spd;
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) m_pos.y -= spd;
 }
 
 void Camera::processMouseMove(double xpos, double ypos) {

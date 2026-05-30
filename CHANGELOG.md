@@ -5,15 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — Milestone 3: Debug HUD
+## [Unreleased] — Milestone 3: Debug HUD + View Modes
 
 ### Added
-- `HUD` class: Dear ImGui lifecycle (init, per-frame, shutdown) with OpenGL 3.3 + GLFW backends
-- `FrameStats` struct: FPS, frame time, draw call count, triangle/vertex totals, viewport dimensions, camera state
-- Semi-transparent overlay (top-left): FPS + frame time graph, resolution, geometry stats, camera position/yaw/pitch
-- `Mesh::triangleCount()` and `Mesh::indexCount()` accessors
-- `Camera::position()`, `Camera::yaw()`, `Camera::pitch()` getters
-- Dear ImGui v1.91.9 via CMake FetchContent; compiled as `imgui_lib` static library
+- `HUD` class: Dear ImGui v1.91.9 overlay (GLFW + OpenGL 3.3 backends); pinned top-left, semi-transparent
+- `FrameStats`: FPS + 128-sample rolling graph, GPU timer (GL_TIME_ELAPSED), process memory (mach), viewport, scene geometry, per-object triangle counts, camera state, render scale
+- 6 render view modes (keys 1–6): Diffuse, Wireframe, Depth, Position, Normals, UV
+- FBO render scale (`RENDER_SCALE=2`): scene rendered at half resolution, blit-upscaled to window; HUD shows native + scaled resolution
+- `blit.vert` / `blit.frag`: fullscreen-triangle blit shaders; foundation for M6 post-processing
+- Cinematic camera model: filmback (35mm) + focal length (50mm) replacing raw FOV angle
+- Camera pos/rot shown as x/y/z axes; filmback, focal length, near/far in HUD
+- `Camera::resetMouse()`: resets mouse delta tracking; called on window resize to prevent camera jump
+- `Window::Window()` now calls `glfwGetFramebufferSize` to get correct initial pixel dimensions on Retina
+- Camera vertical keys: **E** = up, **Q** = down (WASD + Q/E)
+- Sphere reduced to 16×16 (512 tris); plane UVs span 0→1 across full 10m grid
+- Window 2048×1152; camera starts at (0, 1, 10); far plane 100
+
+### Fixed
+- FBO blit not filling window on Retina displays (logical vs physical pixel mismatch)
+- Window resize causing camera to jump (firstMouse flag now reset on resize)
+- Unicode → in HUD replaced with ASCII -> (ImGui default font lacks U+2192)
 
 ---
 

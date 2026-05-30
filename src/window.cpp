@@ -23,6 +23,10 @@ Window::Window(int width, int height, const std::string& title)
     glfwSetFramebufferSizeCallback(m_window, onResize);
     glfwSwapInterval(1);
 
+    // Get actual framebuffer size (differs from logical size on Retina displays)
+    glfwGetFramebufferSize(m_window, &m_width, &m_height);
+    glViewport(0, 0, m_width, m_height);
+
     glEnable(GL_DEPTH_TEST);
 }
 

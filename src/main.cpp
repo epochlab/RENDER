@@ -20,8 +20,8 @@ static void onMouseMove(GLFWwindow*, double xpos, double ypos) {
 static const char* viewModeName(int m) {
     switch (m) {
         case 1: return "Diffuse";    case 2: return "Wireframe";
-        case 3: return "Depth";      case 4: return "Normals";
-        case 5: return "Position";   case 6: return "UV";
+        case 3: return "Depth";      case 4: return "Position";
+        case 5: return "Normals";    case 6: return "UV";
         default: return "Unknown";
     }
 }
@@ -79,6 +79,10 @@ int main() {
         Window win(2048, 1152, "Renderer");
         glfwSetInputMode(win.handle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         glfwSetCursorPosCallback(win.handle(), onMouseMove);
+        // Reset camera mouse state on resize to prevent jump
+        glfwSetWindowSizeCallback(win.handle(), [](GLFWwindow*, int, int) {
+            if (g_camera) g_camera->resetMouse();
+        });
 
         Shader shader("shaders/basic.vert", "shaders/basic.frag");
         shader.use();

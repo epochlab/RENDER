@@ -18,6 +18,7 @@ public:
     void setFocalLength(float mm);
     void processInput(GLFWwindow* window, float dt);
     void processMouseMove(double xpos, double ypos);
+    void resetMouse() { m_firstMouse = true; }
 
     glm::vec3 position()      const { return m_pos; }
     float     yaw()           const { return m_yaw; }

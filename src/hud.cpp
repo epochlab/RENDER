@@ -77,7 +77,7 @@ void HUD::draw(FrameStats& s) {
     // ── Viewport ──────────────────────────────────────────────
     sectionHeader("Viewport");
     if (s.renderScale > 1)
-        ImGui::Text("%d x %d  (x%d → %d x %d)",
+        ImGui::Text("%d x %d  (x%d -> %d x %d)",
                     s.width, s.height, s.renderScale,
                     s.width / s.renderScale, s.height / s.renderScale);
     else
