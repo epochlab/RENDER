@@ -4,12 +4,15 @@
 #include <mach/mach.h>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
+#include <chrono>
 #include "window.hpp"
 #include "shader.hpp"
 #include "camera.hpp"
 #include "mesh.hpp"
 #include "texture.hpp"
 #include "hud.hpp"
+#include "frustum.hpp"
 
 static Camera* g_camera = nullptr;
 
@@ -70,12 +73,16 @@ struct RenderTarget {
     void ensureSize(int width, int height) {
         if (w != width || h != height) { destroy(); create(width, height); }
     }
+
+    // Tracked allocation: RGB8 colour (3B) + DEPTH24 in a 4B/texel renderbuffer.
+    size_t bytes() const { return static_cast<size_t>(w) * h * (3 + 4); }
 };
 
 int main() {
     try {
         constexpr int BASE_W = 2048, BASE_H = 1152;
         constexpr int RENDER_SCALE = 2;   // window = BASE/SCALE logical pixels
+        constexpr int FRAME_CAP    = 0;   // 0 = vsync/unlimited; >0 caps the loop (testing aid)
 
         Window win(BASE_W / RENDER_SCALE, BASE_H / RENDER_SCALE, "Renderer");
         glfwSetInputMode(win.handle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -111,14 +118,18 @@ int main() {
 
         RenderTarget rt{};
 
-        // GPU timer query
-        GLuint gpuQuery       = 0;
-        bool   gpuQueryActive = false;
-        glGenQueries(1, &gpuQuery);
+        // GPU timer: ring of queries read N frames later, so the CPU never stalls
+        // waiting on the GPU (GL_QUERY_RESULT blocks; the ring lets us defer the read).
+        constexpr int GPU_QUERY_FRAMES = 3;
+        GLuint gpuQueries[GPU_QUERY_FRAMES];
+        bool   queryStarted[GPU_QUERY_FRAMES] = {};
+        int    queryWrite = 0;
+        glGenQueries(GPU_QUERY_FRAMES, gpuQueries);
 
         FrameStats stats{};
-        int  viewMode    = 1;
-        bool prevKeys[6] = {};
+        int    viewMode  = 1;
+        bool   prevKeys[6] = {};
+        float  smoothFps = 0.0f;
         double lastTime  = glfwGetTime();
 
         while (!win.shouldClose()) {
@@ -145,12 +156,16 @@ int main() {
             // ── Ensure FBO matches physical framebuffer (1:1) ────
             rt.ensureSize(win.width(), win.height());
 
-            // ── Read last frame's GPU timer ────────────────────────
-            if (gpuQueryActive) {
-                GLuint ns = 0;
-                glGetQueryObjectuiv(gpuQuery, GL_QUERY_RESULT, &ns);
-                stats.gpuTimeMs = static_cast<float>(ns) / 1e6f;
-                gpuQueryActive  = false;
+            // ── Read the query we're about to reuse (written GPU_QUERY_FRAMES ago,
+            //    so its result is ready — no CPU stall). ─────────────
+            if (queryStarted[queryWrite]) {
+                GLint available = 0;
+                glGetQueryObjectiv(gpuQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
+                if (available) {
+                    GLuint ns = 0;
+                    glGetQueryObjectuiv(gpuQueries[queryWrite], GL_QUERY_RESULT, &ns);
+                    stats.gpuTimeMs = static_cast<float>(ns) / 1e6f;
+                }
             }
 
             // ── Render scene → off-screen FBO ──────────────────────
@@ -161,33 +176,49 @@ int main() {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glPolygonMode(GL_FRONT_AND_BACK, viewMode == 2 ? GL_LINE : GL_FILL);
 
-            glBeginQuery(GL_TIME_ELAPSED, gpuQuery);
+            // Cache matrices once — reused for uniforms, frustum, and stats.
+            const glm::mat4 view = camera.viewMatrix();
+            const glm::mat4 proj = camera.projectionMatrix();
 
+            // Frame-constant uniforms: set once, not per draw call (C1).
             shader.use();
-            shader.set("uView",       camera.viewMatrix());
-            shader.set("uProjection", camera.projectionMatrix());
+            shader.set("uView",       view);
+            shader.set("uProjection", proj);
             shader.set("uViewMode",   viewMode);
             shader.set("uNear",       camera.nearPlane());
             shader.set("uFar",        camera.farPlane());
 
+            // Build the per-frame draw list.
             float angle = static_cast<float>(glfwGetTime()) * 40.0f;
-            glm::mat4 mCube = glm::rotate(glm::mat4(1.0f), glm::radians(angle), {0.0f, 1.0f, 0.0f});
-            checker.bind(0);
-            shader.set("uModel", mCube);
-            cube.draw();
+            struct DrawItem { const Mesh* mesh; glm::mat4 model; const Texture* tex; };
+            const DrawItem items[] = {
+                { &cube,   glm::rotate(glm::mat4(1.0f), glm::radians(angle), {0.0f, 1.0f, 0.0f}), &checker },
+                { &sphere, glm::translate(glm::mat4(1.0f), {2.5f, 0.0f, -1.0f}),                  &checker },
+                { &ground, glm::translate(glm::mat4(1.0f), {0.0f, -0.5f, 0.0f}),                  &white   },
+            };
 
-            glm::mat4 mSphere = glm::translate(glm::mat4(1.0f), {2.5f, 0.0f, -1.0f});
-            checker.bind(0);
-            shader.set("uModel", mSphere);
-            sphere.draw();
+            Frustum frustum;
+            frustum.update(proj * view);
 
-            glm::mat4 mGround = glm::translate(glm::mat4(1.0f), {0.0f, -0.5f, 0.0f});
-            white.bind(0);
-            shader.set("uModel", mGround);
-            ground.draw();
+            glBeginQuery(GL_TIME_ELAPSED, gpuQueries[queryWrite]);
+
+            int drawn = 0;
+            for (const DrawItem& it : items) {
+                // World-space bounding sphere (no scaling in these transforms).
+                glm::vec3 centre = glm::vec3(it.model[3]);
+                if (!frustum.testSphere(centre, it.mesh->boundingRadius()))
+                    continue;
+                it.tex->bind(0);
+                shader.set("uModel", it.model);
+                it.mesh->draw();
+                ++drawn;
+            }
 
             glEndQuery(GL_TIME_ELAPSED);
-            gpuQueryActive = true;
+            queryStarted[queryWrite] = true;
+            queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES;
+
+            const int numItems = static_cast<int>(sizeof(items) / sizeof(items[0]));
 
             // ── Blit FBO → screen ──────────────────────────────────
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -205,10 +236,19 @@ int main() {
             glEnable(GL_DEPTH_TEST);
 
             // ── Collect stats ──────────────────────────────────────
-            stats.fps            = (dt > 0.0f) ? 1.0f / dt : 0.0f;
+            float rawFps = (dt > 0.0f) ? 1.0f / dt : 0.0f;
+            smoothFps    = (smoothFps == 0.0f) ? rawFps : smoothFps * 0.9f + rawFps * 0.1f;
+            stats.fps            = rawFps;       // raw, for the history plot
+            stats.fpsSmooth      = smoothFps;    // EMA, headline number
             stats.frameTimeMs    = dt * 1000.0f;
+            stats.frameCap       = FRAME_CAP;
             stats.memMB          = queryMemoryMB();
-            stats.drawCalls      = 3;
+            stats.gpuAllocMB     = static_cast<float>(
+                cube.gpuBytes() + sphere.gpuBytes() + ground.gpuBytes() + rt.bytes())
+                / (1024.0f * 1024.0f);
+            stats.drawCalls      = drawn;
+            stats.drawCallsTotal = numItems;
+            stats.drawCallsCulled = numItems - drawn;
             stats.totalTriangles = cube.triangleCount() + sphere.triangleCount() + ground.triangleCount();
             stats.totalVertices  = cube.indexCount()    + sphere.indexCount()    + ground.indexCount();
             stats.width          = win.width();
@@ -236,12 +276,20 @@ int main() {
             hud.draw(stats);
             hud.endFrame();
 
+            // ── Optional frame cap (testing aid; inert when 0) ─────
+            if (FRAME_CAP > 0) {
+                double target  = 1.0 / FRAME_CAP;
+                double elapsed = glfwGetTime() - now;
+                if (elapsed < target)
+                    std::this_thread::sleep_for(std::chrono::duration<double>(target - elapsed));
+            }
+
             win.swapAndPoll();
         }
 
         rt.destroy();
         glDeleteVertexArrays(1, &blitVAO);
-        glDeleteQueries(1, &gpuQuery);
+        glDeleteQueries(GPU_QUERY_FRAMES, gpuQueries);
 
     } catch (const std::exception& e) {
         std::cerr << "Fatal: " << e.what() << '\n';

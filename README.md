@@ -4,7 +4,7 @@ A 3D render engine built from scratch in C++ with OpenGL.
 
 ## Status
 
-**Milestone 3 — Debug HUD + View Modes** (in progress)
+**Milestone 4 — Optimisation: FPS · Memory · Speed** ✓ done — **Milestone 5 — glTF Geometry Loading** next
 
 ## Requirements
 
@@ -73,7 +73,8 @@ src/
 ├── camera.hpp/.cpp — filmback/focal-length camera, WASD+QE + mouse look
 ├── mesh.hpp/.cpp   — VAO/VBO/EBO geometry, cube/plane/sphere factories
 ├── texture.hpp/.cpp— PNG/JPG/TGA loading via stb_image
-└── hud.hpp/.cpp    — Dear ImGui overlay, FrameStats
+├── hud.hpp/.cpp    — Dear ImGui overlay, FrameStats
+└── frustum.hpp     — Gribb-Hartmann frustum planes, sphere/AABB culling tests
 shaders/
 ├── basic.vert/frag — MVP transform, 6 view modes
 └── blit.vert/frag  — fullscreen upscale blit
@@ -85,9 +86,9 @@ shaders/
 |---|-----------|--------|
 | 1 | Hello 3D World — window, camera, primitives, diffuse shading | ✓ done |
 | 2 | Texture Loading — stb_image, UV coords, Mesh::sphere() | ✓ done |
-| 3 | Debug HUD — Dear ImGui overlay, 6 view modes, FBO render scale | in progress |
-| 4 | Optimisation & FPS — frame pacing, GPU profiling, draw call efficiency | next |
-| 5 | Geometry Loading — OBJ (tinyobjloader) + glTF 2.0 (cgltf) | planned |
+| 3 | Debug HUD — Dear ImGui overlay, 6 view modes, FBO render scale | ✓ done |
+| 4 | Optimisation — smooth FPS, non-stalling GPU timer, GPU-mem tracking, uniform batching, frustum culling | ✓ done |
+| 5 | Geometry Loading — glTF 2.0 (cgltf): meshes, materials, textures, scene hierarchy | next |
 | 6 | HDRI Skydome — equirectangular HDR sky, HDRI-driven ambient | planned |
 | 7 | PBR Shader / Material System — Cook-Torrance BRDF, IBL | planned |
 | 8 | Camera & Lens Effects — HDR framebuffer, tone mapping, bloom, DoF | planned |

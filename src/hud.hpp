@@ -16,9 +16,13 @@ struct SystemInfo {
 
 struct FrameStats {
     // Timing
-    float     fps             = 0.0f;
+    float     fps             = 0.0f;   // raw 1/dt (used for the history plot)
+    float     fpsSmooth       = 0.0f;   // EMA-smoothed, shown as the headline number
     float     frameTimeMs     = 0.0f;
+    float     frameTimeMin    = 0.0f;   // over the 128-frame history window
+    float     frameTimeMax    = 0.0f;
     float     gpuTimeMs       = 0.0f;
+    int       frameCap        = 0;      // 0 = vsync/unlimited
     float     fpsHistory[128]{};
     int       fpsHistoryOffset = 0;
 
@@ -30,14 +34,17 @@ struct FrameStats {
     int       renderScale     = 1;
 
     // Scene geometry
-    int       drawCalls       = 0;
+    int       drawCalls       = 0;   // draw calls actually issued (after culling)
+    int       drawCallsTotal  = 0;   // potential draw calls (objects in scene)
+    int       drawCallsCulled = 0;   // skipped by frustum cull
     int       totalTriangles  = 0;
     int       totalVertices   = 0;
     ObjectInfo objects[8]{};
     int       numObjects      = 0;
 
     // Memory
-    float     memMB           = 0.0f;
+    float     memMB           = 0.0f;   // process phys_footprint (RAM)
+    float     gpuAllocMB      = 0.0f;   // tracked GPU allocation (mesh buffers + FBO)
 
     // Camera
     glm::vec3 camPos          = {};

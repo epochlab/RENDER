@@ -4,7 +4,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — Milestone 3: Debug HUD + View Modes
+## [M4 — Optimisation: FPS · Memory · Speed] — 2026-05-30
+
+- FPS: raw headline + EMA smooth "avg" secondary line; frame-time min/max over the 128-frame window
+- GPU timer: 3-deep query ring read via `GL_QUERY_RESULT_AVAILABLE` — no CPU stall on the GPU
+- Memory: HUD splits RAM (`phys_footprint`) from tracked GPU allocation (mesh buffers + FBO)
+- Speed: view/projection matrices cached per frame (eliminates double-computation), frame-constant uniforms set once
+- Frustum culling (`src/frustum.hpp`, Gribb-Hartmann): per-object bounding-sphere test; HUD shows `drawn / total (culled)`
+- `Mesh` gains bounding radius + GPU byte footprint; optional `FRAME_CAP` testing aid
+
+---
+
+## [M3 — Debug HUD + View Modes] — 2026-05-30
 
 - Dear ImGui v1.91.9 overlay: FPS graph, GPU time, process memory, draw calls, per-object triangle counts, camera state
 - 6 render view modes (keys 1–6): Diffuse, Wireframe, Depth, Position, Normals, UV

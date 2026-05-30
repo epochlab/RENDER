@@ -48,6 +48,16 @@ void HUD::draw(FrameStats& s) {
     s.fpsHistory[s.fpsHistoryOffset] = s.fps;
     s.fpsHistoryOffset = (s.fpsHistoryOffset + 1) % 128;
 
+    // Frame-time min/max over the populated history window (fps → ms).
+    float tMin = 1e9f, tMax = 0.0f;
+    for (float f : s.fpsHistory) {
+        if (f <= 0.0f) continue;            // skip unfilled slots
+        float ms = 1000.0f / f;
+        if (ms < tMin) tMin = ms;
+        if (ms > tMax) tMax = ms;
+    }
+    if (tMax > 0.0f) { s.frameTimeMin = tMin; s.frameTimeMax = tMax; }
+
     const ImGuiWindowFlags flags =
         ImGuiWindowFlags_NoDecoration    |
         ImGuiWindowFlags_AlwaysAutoResize |
@@ -68,11 +78,22 @@ void HUD::draw(FrameStats& s) {
     // ── Frame ─────────────────────────────────────────────────
     sectionHeader("Frame");
     ImGui::Text("%.0f FPS   %.2f ms", s.fps, s.frameTimeMs);
+    ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "avg %.0f", s.fpsSmooth);
     ImGui::PlotLines("##fps", s.fpsHistory, 128, s.fpsHistoryOffset,
                      nullptr, 0.0f, 300.0f, {214.0f, 36.0f});
+    ImGui::Text("min %.2f   max %.2f ms", s.frameTimeMin, s.frameTimeMax);
     ImGui::Text("GPU   %.3f ms", s.gpuTimeMs);
+    if (s.frameCap > 0)
+        ImGui::Text("Cap   %d fps", s.frameCap);
+    else
+        ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "Cap   vsync");
+
+    // ── Memory ────────────────────────────────────────────────
+    sectionHeader("Memory");
     if (s.memMB > 0.0f)
-        ImGui::Text("Mem   %.1f MB", s.memMB);
+        ImGui::Text("RAM        %.1f MB", s.memMB);
+    ImGui::Text("GPU alloc  %.1f MB", s.gpuAllocMB);
+    ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "(meshes + FBO, tracked)");
 
     // ── Viewport ──────────────────────────────────────────────
     sectionHeader("Viewport");
@@ -86,7 +107,8 @@ void HUD::draw(FrameStats& s) {
     // ── Scene ─────────────────────────────────────────────────
     sectionHeader("Scene");
     ImGui::Text("Objects      %d", s.numObjects);
-    ImGui::Text("Draw calls   %d", s.drawCalls);
+    ImGui::Text("Draw calls   %d / %d  (%d culled)",
+                s.drawCalls, s.drawCallsTotal, s.drawCallsCulled);
     ImGui::Text("Triangles    %d", s.totalTriangles);
     ImGui::Text("Vertices     %d", s.totalVertices);
     if (s.numObjects > 0) {

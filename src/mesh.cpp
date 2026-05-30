@@ -6,6 +6,16 @@
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices)
     : m_indexCount(static_cast<GLsizei>(indices.size()))
 {
+    // Bounding sphere radius (origin-centred, model space) for frustum culling,
+    // and tracked GPU buffer footprint.
+    float r2 = 0.0f;
+    for (const Vertex& v : vertices) {
+        float d2 = v.x * v.x + v.y * v.y + v.z * v.z;
+        if (d2 > r2) r2 = d2;
+    }
+    m_boundingRadius = std::sqrt(r2);
+    m_gpuBytes = vertices.size() * sizeof(Vertex) + indices.size() * sizeof(unsigned int);
+
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     glGenBuffers(1, &m_ebo);
@@ -44,7 +54,8 @@ Mesh::~Mesh() {
 }
 
 Mesh::Mesh(Mesh&& o) noexcept
-    : m_vao(o.m_vao), m_vbo(o.m_vbo), m_ebo(o.m_ebo), m_indexCount(o.m_indexCount)
+    : m_vao(o.m_vao), m_vbo(o.m_vbo), m_ebo(o.m_ebo), m_indexCount(o.m_indexCount),
+      m_boundingRadius(o.m_boundingRadius), m_gpuBytes(o.m_gpuBytes)
 {
     o.m_vao = o.m_vbo = o.m_ebo = 0;
 }
@@ -55,7 +66,9 @@ Mesh& Mesh::operator=(Mesh&& o) noexcept {
         if (m_vbo) glDeleteBuffers(1, &m_vbo);
         if (m_ebo) glDeleteBuffers(1, &m_ebo);
         m_vao = o.m_vao; m_vbo = o.m_vbo; m_ebo = o.m_ebo;
-        m_indexCount = o.m_indexCount;
+        m_indexCount     = o.m_indexCount;
+        m_boundingRadius = o.m_boundingRadius;
+        m_gpuBytes       = o.m_gpuBytes;
         o.m_vao = o.m_vbo = o.m_ebo = 0;
     }
     return *this;
