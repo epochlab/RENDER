@@ -1,6 +1,7 @@
 #include "model.hpp"
 #include <cgltf.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <stdexcept>
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -147,8 +148,16 @@ Model Model::loadGLTF(const std::string& path) {
         throw std::runtime_error("cgltf: validation failed for " + path);
     }
 
+    // Extract filename stem for model name.
     const std::string dir = dirOf(path);
     Model model;
+    {
+        auto slash = path.rfind('/');
+        auto dot   = path.rfind('.');
+        size_t start = (slash == std::string::npos) ? 0 : slash + 1;
+        size_t len   = (dot != std::string::npos && dot > start) ? dot - start : std::string::npos;
+        model.m_name = path.substr(start, len);
+    }
 
     if (data->scene) {
         walkNodes(const_cast<const cgltf_node* const*>(data->scene->nodes),
@@ -163,6 +172,10 @@ Model Model::loadGLTF(const std::string& path) {
 
     if (model.m_submeshes.empty())
         throw std::runtime_error("cgltf: no renderable primitives found in " + path);
+
+    // Z-up → Y-up correction: Megascans/FBX assets export Z-up; glTF spec is Y-up.
+    model.m_transform = glm::rotate(glm::mat4(1.0f),
+        glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * model.m_transform;
 
     // Bounding sphere in model space (transform applied as model matrix at draw time).
     model.m_boundingRadius = model.m_submeshes[0].mesh.boundingRadius();

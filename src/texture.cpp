@@ -26,18 +26,12 @@ Texture::Texture(const std::string& path, GLenum wrapMode) {
 
     stbi_set_flip_vertically_on_load(true);
     int w, h, channels;
-    unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 0);
+    // Always load as RGBA so the alpha channel is available for debug views.
+    unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 4);
     if (!data)
         throw std::runtime_error("Texture load failed: " + path + " — " + stbi_failure_reason());
 
-    GLenum internalFmt, fmt;
-    if (channels == 1) {
-        internalFmt = GL_R8;    fmt = GL_RED;
-    } else if (channels == 3) {
-        internalFmt = GL_RGB8;  fmt = GL_RGB;
-    } else {
-        internalFmt = GL_RGBA8; fmt = GL_RGBA;
-    }
+    GLenum internalFmt = GL_RGBA8, fmt = GL_RGBA;
 
     glGenTextures(1, &m_id);
     glBindTexture(GL_TEXTURE_2D, m_id);

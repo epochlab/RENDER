@@ -14,6 +14,7 @@ public:
     void use() const;
     void set(const std::string& name, const glm::mat4& m) const;
     void set(const std::string& name, const glm::vec3& v) const;
+    void set(const std::string& name, const glm::vec2& v) const;
     void set(const std::string& name, float f) const;
     void set(const std::string& name, int i) const;
 

@@ -1,0 +1,27 @@
+{
+  "camera": {
+    "position": [0.0, 1.0, 10.0],
+    "yaw": -90.0,
+    "pitch": 0.0,
+    "near": 0.1,
+    "far": 100.0,
+    "filmback": 35.0,
+    "focalLength": 50.0
+  },
+  "render": {
+    "scale": 2
+  },
+  "hdri": {
+    "path": "assets/hdr/HDR_111_Parking_Lot_2_Env.hdr",
+    "rotation": [0.0, 0.0, 0.0],
+    "visible": true,
+    "exposure": 1.0
+  },
+  "scene": {
+    "geometry": "assets/geo/rock_shopk_gltf_high/Rock_shopk_High.gltf"
+  },
+  "light": {
+    "exposure": 1.0,
+    "intensity": 1.0
+  }
+}
