@@ -92,9 +92,12 @@ void HUD::draw(FrameStats& s) {
 
     // ── Camera ────────────────────────────────────────────────
     sectionHeader("Camera");
-    ImGui::Text("Pos  %.2f  %.2f  %.2f", s.camPos.x, s.camPos.y, s.camPos.z);
-    ImGui::Text("Yaw  %.1f   Pitch %.1f deg", s.camYaw, s.camPitch);
-    ImGui::Text("FOV  %.0f   Near %.2f   Far %.0f", s.camFov, s.camNear, s.camFar);
+    ImGui::Text("pos  x %.2f   y %.2f   z %.2f", s.camPos.x, s.camPos.y, s.camPos.z);
+    ImGui::Text("rot  x %.1f   y %.1f   z %.1f", s.camRotX,  s.camRotY,  s.camRotZ);
+    ImGui::Spacing();
+    ImGui::Text("Filmback   %.1f mm", s.camFilmbackMm);
+    ImGui::Text("Focal      %.1f mm", s.camFocalLengthMm);
+    ImGui::Text("Near  %.2f   Far  %.1f", s.camNear, s.camFar);
 
     // ── GPU ───────────────────────────────────────────────────
     sectionHeader("GPU");

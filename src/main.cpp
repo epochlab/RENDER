@@ -56,8 +56,8 @@ int main() {
         Texture white = Texture::white();
 
         Mesh cube   = Mesh::cube();
-        Mesh sphere = Mesh::sphere(16, 16);   // 512 tris — reduced from 32×32
-        Mesh ground = Mesh::plane(14.0f);
+        Mesh sphere = Mesh::sphere(16, 16);   // 512 tris, radius 0.5m
+        Mesh ground = Mesh::plane(10.0f);     // 10m × 10m
 
         // GPU timer query
         GLuint gpuQuery       = 0;
@@ -142,12 +142,14 @@ int main() {
             stats.totalVertices  = cube.indexCount()    + sphere.indexCount()    + ground.indexCount();
             stats.width          = win.width();
             stats.height         = win.height();
-            stats.camPos         = camera.position();
-            stats.camYaw         = camera.yaw();
-            stats.camPitch       = camera.pitch();
-            stats.camFov         = camera.fov();
-            stats.camNear        = camera.nearPlane();
-            stats.camFar         = camera.farPlane();
+            stats.camPos            = camera.position();
+            stats.camRotX           = camera.pitch();      // X = pitch
+            stats.camRotY           = camera.yaw();        // Y = yaw
+            stats.camRotZ           = 0.0f;               // no roll
+            stats.camFilmbackMm     = camera.filmback();
+            stats.camFocalLengthMm  = camera.focalLength();
+            stats.camNear           = camera.nearPlane();
+            stats.camFar            = camera.farPlane();
             stats.viewMode       = viewMode;
             stats.viewModeName   = ::viewModeName(viewMode);
 

@@ -3,9 +3,13 @@
 #include <algorithm>
 #include <cmath>
 
-Camera::Camera(glm::vec3 position, float aspect, float fovDeg, float near, float far)
+Camera::Camera(glm::vec3 position, float aspect,
+               float filmbackMm, float focalLengthMm,
+               float near, float far)
     : m_pos(position), m_yaw(-90.0f), m_pitch(0.0f),
-      m_aspect(aspect), m_fov(fovDeg), m_near(near), m_far(far)
+      m_aspect(aspect),
+      m_filmbackMm(filmbackMm), m_focalLengthMm(focalLengthMm),
+      m_near(near), m_far(far)
 {}
 
 glm::vec3 Camera::front() const {
@@ -23,11 +27,18 @@ glm::mat4 Camera::viewMatrix() const {
 }
 
 glm::mat4 Camera::projectionMatrix() const {
-    return glm::perspective(glm::radians(m_fov), m_aspect, m_near, m_far);
+    // Horizontal FOV from filmback + focal length; convert to vertical for glm
+    float hFovRad = 2.0f * std::atan(m_filmbackMm / (2.0f * m_focalLengthMm));
+    float vFovRad = 2.0f * std::atan(std::tan(hFovRad * 0.5f) / m_aspect);
+    return glm::perspective(vFovRad, m_aspect, m_near, m_far);
 }
 
 void Camera::setAspect(float aspect) {
     m_aspect = aspect;
+}
+
+void Camera::setFocalLength(float mm) {
+    m_focalLengthMm = mm;
 }
 
 void Camera::processInput(GLFWwindow* window, float dt) {
