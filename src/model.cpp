@@ -147,8 +147,16 @@ Model Model::loadGLTF(const std::string& path) {
         throw std::runtime_error("cgltf: validation failed for " + path);
     }
 
+    // Extract filename stem for model name.
     const std::string dir = dirOf(path);
     Model model;
+    {
+        auto slash = path.rfind('/');
+        auto dot   = path.rfind('.');
+        size_t start = (slash == std::string::npos) ? 0 : slash + 1;
+        size_t len   = (dot != std::string::npos && dot > start) ? dot - start : std::string::npos;
+        model.m_name = path.substr(start, len);
+    }
 
     if (data->scene) {
         walkNodes(const_cast<const cgltf_node* const*>(data->scene->nodes),

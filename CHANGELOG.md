@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased] — Milestone 7: Project Quality & Bug Fixes
 
+- **Project renamed BOUNCE**; window title updated
+- **Space-hold mouse look**: cursor is free by default; hold Space to capture and rotate camera
+- **Mouse sensitivity halved** (0.1 → 0.05)
+- **JSON config** (`profile.json`): runtime config for camera, render scale, HDRI path + rotation + exposure, geometry path, light exposure/intensity — no recompile needed
+- **HDRI + geometry paths** in config: swap assets without touching source
+- **Render scale fix**: FBO always renders at `BASE_W × BASE_H` (2048×1152); no longer inflated by Retina display scale
+- **Z-up → Y-up correction**: model loader applies −90° X rotation to imported geometry
+- **Model name**: `Model::name()` derived from filename; HUD now shows the actual asset name instead of hardcoded "rock"
+- **10 view modes** (keys 1–9 + 0): Beauty | Wireframe | Alpha | Depth | Position | Normals | UV | Albedo | Direct Diffuse | AO
+- HDRI sky background only visible in Beauty mode; all other modes have black background
+- **Alpha channel** (mode 3): samples albedo texture `.a`; textures now loaded as RGBA8
+- **Albedo channel** (mode 8): raw texture, no lighting
+- **Direct Diffuse** (mode 9, renamed from Irradiance): HDRI irradiance without albedo
+- **SSAO** (mode 9): G-buffer with view-space normals + depth texture; 64-sample hemisphere kernel (deterministic seed 42); 5×5 blur pass; applied as AO multiplier in mode 1
+- **HDRI rotation** (`profile.json` → `hdri.rotation`): XYZ Euler rotation applied to sky direction each frame
+- **HDRI exposure** (`profile.json` → `hdri.exposure`): per-frame sky brightness multiplier
+- **HDRI visibility toggle** (`profile.json` → `hdri.visible`): skip sky draw entirely when false
+- **Irradiance scale** (`light.exposure × light.intensity`): scales HDRI diffuse contribution on geometry
+- **H key**: toggle HUD overlay on/off
+- **K key**: save PNG screenshot to `screenshots/BOUNCE_<timestamp>.png`
+- **nlohmann/json v3.11.3** added via FetchContent; `stb_image_write.h` added for screenshot output
+
 ---
 
 ## [M6 — HDRI Equirectangular Skydome] — 2026-05-31

@@ -41,6 +41,10 @@ void Camera::setFocalLength(float mm) {
     m_focalLengthMm = mm;
 }
 
+void Camera::setPitch(float deg) {
+    m_pitch = std::clamp(deg, -89.0f, 89.0f);
+}
+
 void Camera::processInput(GLFWwindow* window, float dt) {
     float spd   = moveSpeed * dt;
     glm::vec3 f = front();

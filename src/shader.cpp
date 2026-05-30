@@ -1,4 +1,5 @@
 #include "shader.hpp"
+#include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <fstream>
 #include <sstream>
@@ -66,6 +67,10 @@ void Shader::set(const std::string& name, const glm::mat4& m) const {
 
 void Shader::set(const std::string& name, const glm::vec3& v) const {
     glUniform3fv(loc(name), 1, glm::value_ptr(v));
+}
+
+void Shader::set(const std::string& name, const glm::vec2& v) const {
+    glUniform2fv(loc(name), 1, glm::value_ptr(v));
 }
 
 void Shader::set(const std::string& name, float f) const {

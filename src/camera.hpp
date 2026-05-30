@@ -16,6 +16,12 @@ public:
 
     void setAspect(float aspect);
     void setFocalLength(float mm);
+    void setPosition(glm::vec3 p)      { m_pos = p; }
+    void setYaw(float deg)             { m_yaw = deg; }
+    void setPitch(float deg);
+    void setNear(float n)              { m_near = n; }
+    void setFar(float f)               { m_far  = f; }
+    void setFilmback(float mm)         { m_filmbackMm = mm; }
     void processInput(GLFWwindow* window, float dt);
     void processMouseMove(double xpos, double ypos);
     void resetMouse() { m_firstMouse = true; }
@@ -29,7 +35,7 @@ public:
     float     focalLength()   const { return m_focalLengthMm; }
 
     float moveSpeed        = 5.0f;
-    float mouseSensitivity = 0.1f;
+    float mouseSensitivity = 0.05f;
 
 private:
     glm::vec3 m_pos;
