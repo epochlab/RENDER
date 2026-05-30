@@ -176,10 +176,14 @@ int main() {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glPolygonMode(GL_FRONT_AND_BACK, viewMode == 2 ? GL_LINE : GL_FILL);
 
+            // Cache matrices once — reused for uniforms, frustum, and stats.
+            const glm::mat4 view = camera.viewMatrix();
+            const glm::mat4 proj = camera.projectionMatrix();
+
             // Frame-constant uniforms: set once, not per draw call (C1).
             shader.use();
-            shader.set("uView",       camera.viewMatrix());
-            shader.set("uProjection", camera.projectionMatrix());
+            shader.set("uView",       view);
+            shader.set("uProjection", proj);
             shader.set("uViewMode",   viewMode);
             shader.set("uNear",       camera.nearPlane());
             shader.set("uFar",        camera.farPlane());
@@ -194,7 +198,7 @@ int main() {
             };
 
             Frustum frustum;
-            frustum.update(camera.projectionMatrix() * camera.viewMatrix());
+            frustum.update(proj * view);
 
             glBeginQuery(GL_TIME_ELAPSED, gpuQueries[queryWrite]);
 

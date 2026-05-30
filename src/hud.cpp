@@ -77,7 +77,8 @@ void HUD::draw(FrameStats& s) {
 
     // ── Frame ─────────────────────────────────────────────────
     sectionHeader("Frame");
-    ImGui::Text("%.0f FPS   %.2f ms", s.fpsSmooth, s.frameTimeMs);
+    ImGui::Text("%.0f FPS   %.2f ms", s.fps, s.frameTimeMs);
+    ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "avg %.0f", s.fpsSmooth);
     ImGui::PlotLines("##fps", s.fpsHistory, 128, s.fpsHistoryOffset,
                      nullptr, 0.0f, 300.0f, {214.0f, 36.0f});
     ImGui::Text("min %.2f   max %.2f ms", s.frameTimeMin, s.frameTimeMax);
