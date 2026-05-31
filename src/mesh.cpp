@@ -5,12 +5,16 @@
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices)
     : m_indexCount(static_cast<GLsizei>(indices.size()))
 {
-    // Bounding sphere radius (origin-centred, model space) for frustum culling,
-    // and tracked GPU buffer footprint.
     float r2 = 0.0f;
     for (const Vertex& v : vertices) {
         float d2 = v.x * v.x + v.y * v.y + v.z * v.z;
         if (d2 > r2) r2 = d2;
+        if (v.x < m_min.x) m_min.x = v.x;
+        if (v.y < m_min.y) m_min.y = v.y;
+        if (v.z < m_min.z) m_min.z = v.z;
+        if (v.x > m_max.x) m_max.x = v.x;
+        if (v.y > m_max.y) m_max.y = v.y;
+        if (v.z > m_max.z) m_max.z = v.z;
     }
     m_boundingRadius = std::sqrt(r2);
 
@@ -57,7 +61,7 @@ Mesh::~Mesh() {
 
 Mesh::Mesh(Mesh&& o) noexcept
     : m_vao(o.m_vao), m_vbo(o.m_vbo), m_ebo(o.m_ebo), m_indexCount(o.m_indexCount),
-      m_boundingRadius(o.m_boundingRadius)
+      m_boundingRadius(o.m_boundingRadius), m_min(o.m_min), m_max(o.m_max)
 {
     o.m_vao = o.m_vbo = o.m_ebo = 0;
 }
@@ -70,6 +74,8 @@ Mesh& Mesh::operator=(Mesh&& o) noexcept {
         m_vao = o.m_vao; m_vbo = o.m_vbo; m_ebo = o.m_ebo;
         m_indexCount     = o.m_indexCount;
         m_boundingRadius = o.m_boundingRadius;
+        m_min = o.m_min;
+        m_max = o.m_max;
         o.m_vao = o.m_vbo = o.m_ebo = 0;
     }
     return *this;

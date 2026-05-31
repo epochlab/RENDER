@@ -4,6 +4,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Quick Fixes] — 2026-05-31
+
+- **Sky Background menu fix** — View → Sky Background now correctly toggles the sky; menu-driven changes are detected before the per-frame sync overwrites them (`main.cpp`)
+- **world_pos AOV fix** — replaced `fract(vFragPos)` with AABB-normalised position `(vFragPos − boundsMin) / extent`, giving a smooth continuous gradient rather than repeating modulo-1 banding
+- **Bounds AOV** — new "bounds" mode (mode 3, inserted after wireframe) colours each fragment by its normalised position within the world-space AABB; `Mesh` and `Model` now track model-space min/max, transformed to world space via the scene matrix each frame
+
+---
+
 ## [Render Performance] — 2026-05-31
 
 - **Release build preset** — `cmake --preset release` builds with `-O3` + LTO; executable at `build/release/KODAK`

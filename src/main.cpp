@@ -11,6 +11,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <cfloat>
 #include <ctime>
 #include "window.hpp"
 #include "shader.hpp"
@@ -352,6 +353,22 @@ int main() {
             const glm::mat4 geomMat    = sceneRot * geom.transform();
             const glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(geomMat)));
             shader.set("uNormalMatrix", normalMatrix);
+
+            // World-space AABB from model-space bounds: transform all 8 corners.
+            {
+                glm::vec3 lo = geom.boundsMin(), hi = geom.boundsMax();
+                glm::vec3 wMin(FLT_MAX), wMax(-FLT_MAX);
+                for (int cx = 0; cx <= 1; ++cx)
+                for (int cy = 0; cy <= 1; ++cy)
+                for (int cz = 0; cz <= 1; ++cz) {
+                    glm::vec3 c(cx ? hi.x : lo.x, cy ? hi.y : lo.y, cz ? hi.z : lo.z);
+                    glm::vec3 w = glm::vec3(geomMat * glm::vec4(c, 1.0f));
+                    wMin = glm::min(wMin, w);
+                    wMax = glm::max(wMax, w);
+                }
+                shader.set("uBoundsMin", wMin);
+                shader.set("uBoundsMax", wMax);
+            }
             Frustum frustum;
             frustum.update(proj * view);
 
@@ -469,6 +486,10 @@ int main() {
             // Merge native menu one-shot actions into stats, then sync checkmarks.
             if (menuFlags.doCapture)  { stats.doCapture  = true; menuFlags.doCapture  = false; }
             if (menuFlags.doSaveJson) { stats.doSaveJson = true; menuFlags.doSaveJson = false; }
+            if (menuFlags.skyVisible != skyVisible) {
+                skyVisible       = menuFlags.skyVisible;
+                stats.skyVisible = menuFlags.skyVisible;
+            }
             menuFlags.skyVisible = skyVisible;
             menuFlags.showPanel  = stats.showPanel;
             syncOsxMenuBar(menuFlags);

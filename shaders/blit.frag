@@ -10,7 +10,7 @@ uniform int       uViewMode;
 out vec4 FragColor;
 
 void main() {
-    if (uViewMode == 12) {
+    if (uViewMode == 13) {
         // Black for sky pixels (depth at far plane), AO value for geometry.
         float depth = texture(uDepth, vUV).r;
         float ao    = (depth >= 0.9999) ? 0.0 : texture(uAO, vUV).r;
