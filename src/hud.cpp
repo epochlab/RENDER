@@ -73,9 +73,9 @@ void HUD::draw(FrameStats& s) {
     // ── View ──────────────────────────────────────────────────
     sectionHeader("View");
     static const char* k_modeNames[] = {
-        "Beauty", "Wireframe", "Alpha", "Depth", "world_pos",
-        "world_normals", "UV", "Albedo", "_diffuse", "_refl",
-        "Shading Normal", "AO"
+        "beauty", "wireframe", "alpha", "depth", "world_pos",
+        "world_normals", "uv", "albedo", "direct_diffuse", "direct_refl",
+        "shading_normal", "ao"
     };
     int modeIdx = s.viewMode - 1;
     ImGui::SetNextItemWidth(-1.0f);

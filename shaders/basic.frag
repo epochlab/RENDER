@@ -74,13 +74,16 @@ vec3 irradianceIBL(vec3 n, float roughness) {
 }
 
 // GGX-lobe IBL for specular reflection.
-// roughness=0 → perfect mirror (all samples along reflect dir), roughness=1 → very blurry.
+// roughness=0 → perfect mirror. roughness=1 → cosine-weighted hemisphere on the surface
+// normal (= diffuse irradiance). Lobe centre shifts from reflect dir to normal as a=r² grows.
 vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
-    float a  = roughness * roughness;
-    vec3  r  = reflect(-v, n);
-    vec3  up = abs(r.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-    vec3  T  = normalize(cross(up, r));
-    vec3  B  = cross(r, T);
+    float a   = roughness * roughness;
+    vec3  r   = reflect(-v, n);
+    // Shift lobe centre: reflection dir at roughness=0, surface normal at roughness=1.
+    vec3  dir = normalize(mix(r, n, a));
+    vec3  up  = abs(dir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3  T   = normalize(cross(up, dir));
+    vec3  B   = cross(dir, T);
 
     const float PHI = 2.3999632;
     vec3 acc = vec3(0.0);
@@ -91,7 +94,7 @@ vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
         float cosT  = sqrt((1.0 - u) / denom);
         float sinT  = sqrt(max(0.0, 1.0 - cosT * cosT));
         vec3  local = vec3(sinT * cos(phi), sinT * sin(phi), cosT);
-        acc += sampleEnvDir(normalize(T * local.x + B * local.y + r * local.z));
+        acc += sampleEnvDir(normalize(T * local.x + B * local.y + dir * local.z));
     }
     return acc / float(uIblSamples);
 }
