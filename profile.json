@@ -1,24 +1,37 @@
 {
   "camera": {
-    "position": [0.0, 0.0, 5.0],
-    "yaw": -90.0,
-    "pitch": 0.0,
-    "near": 0.1,
-    "far": 100.0,
+    "far": 10.0,
     "filmback": 35.0,
-    "focalLength": 50.0
-  },
-  "render": {
-    "scale": 2
+    "focalLength": 50.0,
+    "near": 0.10000000149011612,
+    "pitch": 0.0,
+    "position": [
+      -0.23604854941368103,
+      0.11997789889574051,
+      2.7183213233947754
+    ],
+    "yaw": -90.0
   },
   "hdri": {
-    "path": "assets/hdr/HDR_111_Parking_Lot_2_Env.hdr",
-    "rotation": [0.0, 0.0, 0.0],
-    "visible": true,
-    "exposure": 6.0
+    "exposure": 2.0,
+    "path": "assets/hdr/HDR_111_Parking_Lot_2/HDR_111_Parking_Lot_2_Bg.jpg",
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "visible": false
+  },
+  "render": {
+    "scale": 2,
+    "iblSamples": 16
   },
   "scene": {
     "geometry": "assets/geo/broken_stump_rkswd_ue_high/rkswd_tier_1.gltf",
-    "rotation": [0.0, -90.0, -90.0]
+    "rotation": [
+      0.0,
+      -90.0,
+      -90.0
+    ]
   }
 }

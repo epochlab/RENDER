@@ -17,11 +17,8 @@ vec3 rotateXYZ(vec3 v, vec3 angles) {
     float cy = cos(angles.y), sy = sin(angles.y);
     float cz = cos(angles.z), sz = sin(angles.z);
 
-    // X rotation
     v = vec3(v.x, cx*v.y - sx*v.z, sx*v.y + cx*v.z);
-    // Y rotation
     v = vec3(cy*v.x + sy*v.z, v.y, -sy*v.x + cy*v.z);
-    // Z rotation
     v = vec3(cz*v.x - sz*v.y, sz*v.x + cz*v.y, v.z);
     return v;
 }
@@ -35,7 +32,7 @@ void main() {
 
     float phi   = atan(dir.z, dir.x);
     float theta = acos(clamp(dir.y, -1.0, 1.0));
-    vec2  uv    = vec2(phi / (2.0 * PI) + 0.5, theta / PI);
+    vec2  uv    = vec2(phi / (2.0 * PI) + 0.5, 1.0 - theta / PI);
 
     FragColor = vec4(texture(uSkyHDR, uv).rgb * uHdriExposure, 1.0);
 }

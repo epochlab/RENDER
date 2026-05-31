@@ -11,16 +11,49 @@ uniform int       uViewMode;        // 1=beauty 2=wire 3=alpha 4=depth 5=pos 6=n
 uniform float     uNear;
 uniform float     uFar;
 uniform float     uHdriExposure;
+uniform vec3      uHdriRot;         // XYZ Euler rotation in radians — must match sky shader
+uniform int       uIblSamples;      // hemisphere sample count (profile.json render.iblSamples)
 
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gNormal;  // view-space normals for SSAO
 
 const float PI = 3.14159265358979;
 
-vec3 sampleEnv(vec3 n) {
-    float phi   = atan(n.z, n.x);
-    float theta = acos(clamp(n.y, -1.0, 1.0));
-    return texture(uSkyHDR, vec2(phi / (2.0 * PI) + 0.5, theta / PI)).rgb * uHdriExposure;
+vec3 rotateXYZ(vec3 v, vec3 angles) {
+    float cx = cos(angles.x), sx = sin(angles.x);
+    float cy = cos(angles.y), sy = sin(angles.y);
+    float cz = cos(angles.z), sz = sin(angles.z);
+    v = vec3(v.x, cx*v.y - sx*v.z, sx*v.y + cx*v.z);
+    v = vec3(cy*v.x + sy*v.z, v.y, -sy*v.x + cy*v.z);
+    v = vec3(cz*v.x - sz*v.y, sz*v.x + cz*v.y, v.z);
+    return v;
+}
+
+vec3 sampleEnvDir(vec3 dir) {
+    dir = rotateXYZ(dir, uHdriRot);
+    float phi   = atan(dir.z, dir.x);
+    float theta = acos(clamp(dir.y, -1.0, 1.0));
+    return texture(uSkyHDR, vec2(phi / (2.0 * PI) + 0.5, 1.0 - theta / PI)).rgb * uHdriExposure;
+}
+
+// Cosine-weighted Fibonacci hemisphere integration (Lambertian irradiance).
+// Returns avg(L) weighted by cosine; multiply by albedo outside to get final colour.
+vec3 irradianceIBL(vec3 n) {
+    vec3 up        = abs(n.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent   = normalize(cross(up, n));
+    vec3 bitangent = cross(n, tangent);
+
+    const float PHI = 2.3999632; // golden angle = 2π/φ²
+    vec3 acc = vec3(0.0);
+    for (int i = 0; i < uIblSamples; i++) {
+        float cosTheta = sqrt(1.0 - (float(i) + 0.5) / float(uIblSamples));
+        float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+        float phi      = PHI * float(i);
+        vec3  local    = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+        vec3  world    = local.x * tangent + local.y * bitangent + local.z * n;
+        acc += sampleEnvDir(world);
+    }
+    return acc / float(uIblSamples);
 }
 
 void main() {
@@ -59,12 +92,12 @@ void main() {
 
     } else if (uViewMode == 9) {
         // Direct Diffuse — HDRI irradiance only, no albedo
-        gColor = vec4(sampleEnv(normalize(vNormal)), 1.0);
+        gColor = vec4(irradianceIBL(normalize(vNormal)), 1.0);
 
     } else {
         // Mode 1 (Beauty) and mode 10 (AO, display overridden by blit.frag)
         vec3 albedo     = texture(uAlbedo, vUV).rgb;
-        vec3 irradiance = sampleEnv(normalize(vNormal));
+        vec3 irradiance = irradianceIBL(normalize(vNormal));
         gColor = vec4(albedo * irradiance, 1.0);
     }
 }

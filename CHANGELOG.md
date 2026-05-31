@@ -4,7 +4,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — Milestone 7: Project Quality & Bug Fixes
+## [Unreleased] — Milestone 7 continued
+
+- **Diffuse IBL fix**: replaced single-tap HDRI sample with 64-sample cosine-weighted Fibonacci hemisphere integration; correctly integrates radiance over the hemisphere (Lambertian BRDF π terms cancel, giving `albedo × avg(L)`)
+- **HDRI lighting rotation**: `uHdriRot` now passed to `basic.frag`; sky background and diffuse irradiance rotate together
+- **Skydome Y-flip**: V-coordinate flipped in equirectangular UV mapping in both `sky.frag` and `basic.frag`; workaround `rotation.z = 180` removed from `profile.json`
+- **B key**: toggle sky background on/off at runtime (beauty mode only)
+- **J key**: write current camera `position`, `yaw`, `pitch` back to `profile.json`; all other profile fields preserved
+- **Profile schema documented** in README; `camera.near` / `camera.far` depth range noted as already supported
+
+---
+
+## [M7 — Project Quality & Bug Fixes] — 2026-05-31
 
 - **Project renamed BOUNCE**; window title updated
 - **Space-hold mouse look**: cursor is free by default; hold Space to capture and rotate camera

@@ -31,8 +31,10 @@ Run from the **project root** (shaders load relative to the working directory):
 | Q | Fly down |
 | Space (hold) | Enable mouse look |
 | Mouse | Look around (while Space held) |
-| 1–9 | Switch view mode |
+| 1–9, 0 | Switch view mode |
 | H | Toggle HUD overlay |
+| B | Toggle sky background (beauty mode) |
+| J | Save camera position / rotation to `profile.json` |
 | K | Save screenshot to `screenshots/` |
 | ESC | Quit |
 
@@ -50,6 +52,39 @@ Run from the **project root** (shaders load relative to the working directory):
 | 8 | Albedo |
 | 9 | Direct Diffuse |
 | 0 | AO (SSAO) |
+
+## Profile (`profile.json`)
+
+All fields are optional; missing keys fall back to defaults.
+
+```jsonc
+{
+  "camera": {
+    "position":    [x, y, z],   // world-space eye position
+    "yaw":         -90.0,       // horizontal rotation in degrees
+    "pitch":       0.0,         // vertical rotation in degrees
+    "near":        0.1,         // near clip plane (metres)
+    "far":         100.0,       // far clip plane (metres)
+    "filmback":    35.0,        // sensor width in mm (35 = full-frame)
+    "focalLength": 50.0         // focal length in mm
+  },
+  "render": {
+    "scale": 2                  // FBO divisor: 2 → render at BASE/2 resolution
+  },
+  "hdri": {
+    "path":     "assets/hdr/…", // equirectangular .hdr / .jpg path
+    "rotation": [0, 0, 0],      // XYZ Euler degrees applied to sky direction
+    "visible":  true,           // draw sky background on startup
+    "exposure": 1.0             // linear brightness multiplier
+  },
+  "scene": {
+    "geometry": "assets/geo/…", // glTF 2.0 file path
+    "rotation": [0, 0, 0]       // XYZ Euler degrees applied to loaded geometry
+  }
+}
+```
+
+Press **J** at runtime to write the current camera state back to `profile.json`.
 
 ## Dependencies
 

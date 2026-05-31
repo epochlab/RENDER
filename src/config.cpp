@@ -48,7 +48,8 @@ AppConfig loadConfig(const std::string& path) {
 
     if (j.contains("render")) {
         const auto& r = j["render"];
-        cfg.render.scale = ji(r.value("scale", json(2)), cfg.render.scale);
+        cfg.render.scale      = ji(r.value("scale",      json(2)),  cfg.render.scale);
+        cfg.render.iblSamples = ji(r.value("iblSamples", json(16)), cfg.render.iblSamples);
     }
 
     if (j.contains("hdri")) {
@@ -67,4 +68,34 @@ AppConfig loadConfig(const std::string& path) {
     }
 
     return cfg;
+}
+
+void saveConfig(const AppConfig& cfg, const std::string& path) {
+    json j;
+    j["camera"] = {
+        {"position",    {cfg.camera.position.x, cfg.camera.position.y, cfg.camera.position.z}},
+        {"yaw",         cfg.camera.yaw},
+        {"pitch",       cfg.camera.pitch},
+        {"near",        cfg.camera.near},
+        {"far",         cfg.camera.far},
+        {"filmback",    cfg.camera.filmback},
+        {"focalLength", cfg.camera.focalLength}
+    };
+    j["render"] = {{"scale", cfg.render.scale}, {"iblSamples", cfg.render.iblSamples}};
+    j["hdri"] = {
+        {"path",     cfg.hdri.path},
+        {"rotation", {cfg.hdri.rotation.x, cfg.hdri.rotation.y, cfg.hdri.rotation.z}},
+        {"visible",  cfg.hdri.visible},
+        {"exposure", cfg.hdri.exposure}
+    };
+    j["scene"] = {
+        {"geometry", cfg.scene.geometry},
+        {"rotation", {cfg.scene.rotation.x, cfg.scene.rotation.y, cfg.scene.rotation.z}}
+    };
+
+    std::ofstream f(path);
+    if (f.is_open())
+        f << j.dump(2) << '\n';
+    else
+        std::cerr << "saveConfig: could not write " << path << '\n';
 }
