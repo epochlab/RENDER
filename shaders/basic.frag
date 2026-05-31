@@ -1,7 +1,6 @@
 #version 330 core
 
 in vec3 vNormal;
-in vec3 vNormalVS;
 in vec3 vTangent;
 in vec3 vBitangent;
 in vec3 vFragPos;
@@ -12,7 +11,7 @@ uniform sampler2D uSkyHDR;     // equirectangular HDRI for diffuse irradiance
 uniform sampler2D uNormalMap;  // tangent-space normal map (unit 2)
 uniform int       uViewMode;   // 1=beauty  2=wire    3=alpha   4=depth    5=world_pos
                                // 6=world_normals 7=uv  8=albedo  9=_diffuse 10=_refl
-                               // 11=shading_normal  12=ao
+                               // 11=shading_normal  12=ao  13=fresnel
 uniform float     uNear;
 uniform float     uFar;
 uniform float     uHdriExposure;
@@ -27,7 +26,8 @@ uniform mat4      uView;       // view matrix — used to transform shading norm
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gNormal;  // view-space shading normals for SSAO
 
-const float PI = 3.14159265358979;
+const float PI  = 3.14159265358979;
+const float PHI = 2.3999632;  // golden angle = 2π/φ²
 
 vec3 rotateXYZ(vec3 v, vec3 angles) {
     float cx = cos(angles.x), sx = sin(angles.x);
@@ -60,7 +60,6 @@ vec3 irradianceIBL(vec3 n, float roughness) {
     vec3 tangent   = normalize(cross(up, n));
     vec3 bitangent = cross(n, tangent);
 
-    const float PHI = 2.3999632; // golden angle = 2π/φ²
     float exponent  = 0.5 + 0.5 * clamp(roughness, 0.0, 1.0);
     vec3 acc = vec3(0.0);
     for (int i = 0; i < uIblSamples; i++) {
@@ -88,7 +87,6 @@ vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
     vec3  T   = normalize(cross(up, dir));
     vec3  B   = cross(dir, T);
 
-    const float PHI = 2.3999632;
     vec3 acc = vec3(0.0);
     for (int i = 0; i < uIblSamples; i++) {
         float u     = (float(i) + 0.5) / float(uIblSamples);

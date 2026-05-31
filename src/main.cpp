@@ -25,7 +25,6 @@ static void onMouseMove(GLFWwindow*, double xpos, double ypos) {
     if (g_camera) g_camera->processMouseMove(xpos, ypos);
 }
 
-
 static float queryMemoryMB() {
     task_vm_info_data_t info;
     mach_msg_type_number_t count = TASK_VM_INFO_COUNT;

@@ -126,7 +126,7 @@ void HUD::draw(FrameStats& s) {
     // ── Camera ────────────────────────────────────────────────
     sectionHeader("Camera");
     ImGui::Text("pos  x %.2f   y %.2f   z %.2f", s.camPos.x, s.camPos.y, s.camPos.z);
-    ImGui::Text("rot  x %.1f   y %.1f   z %.1f", s.camRotX,  s.camRotY,  s.camRotZ);
+    ImGui::Text("rot  x %.1f   y %.1f", s.camRotX, s.camRotY);
     ImGui::Spacing();
     ImGui::Text("Filmback   %.1f mm", s.camFilmbackMm);
     ImGui::Text("Focal      %.1f mm", s.camFocalLengthMm);

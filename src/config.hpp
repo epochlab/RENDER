@@ -25,8 +25,8 @@ struct AppConfig {
         float ssaoRadius     = 0.5f;
         float ssaoBias       = 0.025f;
         int   ssaoBlurRadius = 2;     // 1 = 3×3, 2 = 5×5
-        float metallic       = 0.0f;
-        float ior            = 1.5f;
+        float metallic       = 0.0f; // 0 = dielectric, 1 = metal
+        float ior            = 1.5f; // index of refraction (dielectrics only)
     } shading;
 
     struct Hdri {

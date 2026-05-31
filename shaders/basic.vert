@@ -10,7 +10,6 @@ uniform mat4 uView;
 uniform mat4 uProjection;
 
 out vec3 vNormal;     // world-space vertex normal
-out vec3 vNormalVS;   // view-space normal (SSAO G-buffer)
 out vec3 vTangent;    // world-space tangent
 out vec3 vBitangent;  // world-space bitangent
 out vec3 vFragPos;
@@ -24,8 +23,7 @@ void main() {
     mat3 normalMat = mat3(transpose(inverse(uModel)));
     vec3 N = normalize(normalMat * aNormal);
 
-    vNormal   = N;
-    vNormalVS = normalize(mat3(transpose(inverse(uView * uModel))) * aNormal);
+    vNormal = N;
 
     if (dot(aTangent.xyz, aTangent.xyz) > 1e-5) {
         vec3 T = normalize(normalMat * aTangent.xyz);

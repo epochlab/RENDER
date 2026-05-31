@@ -7,10 +7,9 @@
 #include "shader.hpp"
 
 struct SubMesh {
-    Mesh        mesh;
-    Texture     albedo;
-    Texture     normalMap;   // tangent-space normal map (unit 2)
-    std::string ormPath;     // ORM path kept for M9b PBR
+    Mesh    mesh;
+    Texture albedo;
+    Texture normalMap;  // tangent-space normal map (unit 2)
 };
 
 class Model {
