@@ -15,14 +15,14 @@
     "iblSamples": 16
   },
   "hdri": {
-    "path": "assets/hdr/HDR_111_Parking_Lot_2/HDR_111_Parking_Lot_2_Prev.jpg",
+    "path": "/Users/James/Desktop/assets/hdr/HDR_111_Parking_Lot_2/HDR_111_Parking_Lot_2_Prev.jpg",
     "exposure": 2.0,
     "rotation": [0.0, 0.0, 0.0],
     "visible": false,
     "flipV": false
   },
   "scene": {
-    "geometry": "assets/geo/broken_stump_rkswd_ue_high/rkswd_tier_1.gltf",
+    "geometry": "/Users/James/Desktop/assets/geo/broken_stump_rkswd_ue_high/rkswd_tier_1.gltf",
     "rotation": [0.0, -90.0, -90.0]
   },
   "shading": {
