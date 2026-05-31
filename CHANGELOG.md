@@ -4,14 +4,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — Milestone 7 continued
+## [M8 — Orbit Camera] — 2026-05-31
 
-- **Diffuse IBL fix**: replaced single-tap HDRI sample with 64-sample cosine-weighted Fibonacci hemisphere integration; correctly integrates radiance over the hemisphere (Lambertian BRDF π terms cancel, giving `albedo × avg(L)`)
-- **HDRI lighting rotation**: `uHdriRot` now passed to `basic.frag`; sky background and diffuse irradiance rotate together
-- **Skydome Y-flip**: V-coordinate flipped in equirectangular UV mapping in both `sky.frag` and `basic.frag`; workaround `rotation.z = 180` removed from `profile.json`
-- **B key**: toggle sky background on/off at runtime (beauty mode only)
-- **J key**: write current camera `position`, `yaw`, `pitch` back to `profile.json`; all other profile fields preserved
-- **Profile schema documented** in README; `camera.near` / `camera.far` depth range noted as already supported
+- **LMB orbit**: left-click depth-samples the G-buffer at screen centre to set the orbit pivot; drag tumbles the camera around that point; release frees the cursor
+- **Pivot depth**: world-space position reconstructed from the depth buffer via `inverse(proj × view)`; falls back to 3 units ahead of camera when no geometry is hit
+- **No-jump orbit**: yaw/pitch synced after every orbit move so WASD re-entry is seamless; `m_firstMouse` reset on click prevents first-frame delta spike
+- **WASD / QE always active**: free-fly never disabled during orbit
+- **Y-axis inverted** for natural tumble feel
+- **Viewport resolution in profile**: `render.width` / `render.height` configurable without recompile (defaults 2048×1152)
+- **IBL sample count in profile**: `render.iblSamples` configurable without recompile
+- **Diffuse IBL fix**: 64-sample cosine-weighted Fibonacci hemisphere integration; `albedo × avg(L)` correctly computed
+- **HDRI lighting rotation**: `uHdriRot` passed to `basic.frag`; sky and diffuse irradiance rotate together
+- **Skydome Y-flip**: V-coordinate flipped in equirectangular UV mapping; workaround `rotation.z = 180` removed from `profile.json`
+- **B key**: toggle sky background at runtime (beauty mode only)
+- **J key**: write current camera `position`, `yaw`, `pitch` back to `profile.json`
+
+---
+
+## [M7 — Project Quality & Bug Fixes] — 2026-05-31
 
 ---
 
