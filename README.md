@@ -8,26 +8,30 @@
 
 ## Build
 
-Configure (first time or after CMakeLists changes):
+Two presets are available:
+
+| Preset | Type | Output |
+|--------|------|--------|
+| `dev` | Debug | `build/dev/KODAK` |
+| `release` | Release (`-O3` + LTO) | `build/release/KODAK` |
+
+Configure and build:
 
 ```bash
-cmake --preset dev
+# Development (fast iteration, debug symbols)
+cmake --preset dev && cmake --build --preset dev -j
+
+# Release (maximum performance)
+cmake --preset release && cmake --build --preset release -j
 ```
-
-Build:
-
-```bash
-cmake --build --preset dev -j
-```
-
-Output: `build/dev/KODAK`
 
 ## Run
 
-Run from the **project root** (shaders load relative to the working directory):
+Run from the **project root** (shaders and assets load relative to the working directory):
 
 ```bash
-./build/dev/KODAK
+./build/dev/KODAK      # debug build
+./build/release/KODAK  # release build
 ```
 
 ## Controls
@@ -174,5 +178,6 @@ profile.json          — runtime scene config (camera, render, HDRI, scene, sha
 | Orbit Camera — LMB depth-sampled pivot, diffuse IBL fix | ✓ |
 | PBR BSDF — Schlick Fresnel, IOR-derived F0, energy-conserving Ld+Ls | ✓ |
 | GUI & Debug — native macOS menu, crosshair, HDRI controls, AOV remap | ✓ |
+| Render Performance — uniform cache, CPU normal matrix, half-res SSAO, release preset | ✓ |
 | Camera & Lens Effects — exposure, bloom, DoF | planned |
 | Advanced — OpenEXR I/O, Alembic geometry caches | planned |
