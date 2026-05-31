@@ -64,7 +64,7 @@ The overlay panel (top-left) shows frame timing, memory, viewport, scene stats, 
 |------|---------|
 | beauty | PBR: Fresnel-weighted diffuse + specular IBL |
 | wireframe | Triangle edges |
-| bounds | Fragment position normalised within world-space AABB |
+| bounds | Flat grey geometry + yellow AABB wireframe box (GL_LINES, depth-tested) |
 | alpha | Albedo alpha channel |
 | depth | Linearised scene depth |
 | world_pos | World-space position normalised within scene AABB |

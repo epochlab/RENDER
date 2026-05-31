@@ -8,7 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Sky Background menu fix** — View → Sky Background now correctly toggles the sky; menu-driven changes are detected before the per-frame sync overwrites them (`main.cpp`)
 - **world_pos AOV fix** — replaced `fract(vFragPos)` with AABB-normalised position `(vFragPos − boundsMin) / extent`, giving a smooth continuous gradient rather than repeating modulo-1 banding
-- **Bounds AOV** — new "bounds" mode (mode 3, inserted after wireframe) colours each fragment by its normalised position within the world-space AABB; `Mesh` and `Model` now track model-space min/max, transformed to world space via the scene matrix each frame
+- **Bounds AOV** — new "bounds" mode (mode 3, inserted after wireframe): geometry drawn as flat grey with a yellow GL_LINES wireframe box showing the world-space AABB min/max; `Mesh` and `Model` track model-space min/max; corners transformed at startup via the (constant) scene matrix; `line.vert`/`line.frag` added for the box pass
 
 ---
 

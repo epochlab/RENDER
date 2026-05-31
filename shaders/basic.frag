@@ -123,9 +123,8 @@ void main() {
         gColor = vec4(0.35, 0.85, 1.0, 1.0);
 
     } else if (uViewMode == 3) {
-        // Bounds — fragment position normalized within world-space AABB
-        vec3 extent = uBoundsMax - uBoundsMin;
-        gColor = vec4(clamp((vFragPos - uBoundsMin) / max(extent, vec3(1e-6)), 0.0, 1.0), 1.0);
+        // Bounds — flat grey fill; bounding box drawn as a separate GL_LINES pass in main.cpp
+        gColor = vec4(0.25, 0.25, 0.25, 1.0);
 
     } else if (uViewMode == 4) {
         // Alpha channel

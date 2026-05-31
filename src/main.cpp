@@ -164,6 +164,8 @@ int main() {
         blurShader.set("uSSAO",        0);
         blurShader.set("uBlurRadius",  cfg.shading.ssaoBlurRadius);
 
+        Shader lineShader("shaders/line.vert", "shaders/line.frag");
+
         // ── Camera ─────────────────────────────────────────────────
         Camera camera(cfg.camera.position, win.aspectRatio(),
                       cfg.camera.filmback, cfg.camera.focalLength,
@@ -255,6 +257,52 @@ int main() {
         sceneRot = glm::rotate(sceneRot, glm::radians(cfg.scene.rotation.x), glm::vec3(1,0,0));
         sceneRot = glm::rotate(sceneRot, glm::radians(cfg.scene.rotation.y), glm::vec3(0,1,0));
         sceneRot = glm::rotate(sceneRot, glm::radians(cfg.scene.rotation.z), glm::vec3(0,0,1));
+
+        // ── World-space AABB (constant — geomMat doesn't change at runtime) ────
+        const glm::mat4 geomMatStatic = sceneRot * geom.transform();
+        glm::vec3 wMin(FLT_MAX), wMax(-FLT_MAX);
+        {
+            glm::vec3 lo = geom.boundsMin(), hi = geom.boundsMax();
+            for (int cx = 0; cx <= 1; ++cx)
+            for (int cy = 0; cy <= 1; ++cy)
+            for (int cz = 0; cz <= 1; ++cz) {
+                glm::vec3 c(cx ? hi.x : lo.x, cy ? hi.y : lo.y, cz ? hi.z : lo.z);
+                glm::vec3 w = glm::vec3(geomMatStatic * glm::vec4(c, 1.0f));
+                wMin = glm::min(wMin, w);
+                wMax = glm::max(wMax, w);
+            }
+        }
+        shader.use();
+        shader.set("uBoundsMin", wMin);
+        shader.set("uBoundsMax", wMax);
+
+        // ── Bounding box line geometry (12 edges × 2 vertices = 24) ───────────
+        const glm::vec3 bCorners[8] = {
+            {wMin.x, wMin.y, wMin.z}, {wMax.x, wMin.y, wMin.z},
+            {wMax.x, wMax.y, wMin.z}, {wMin.x, wMax.y, wMin.z},
+            {wMin.x, wMin.y, wMax.z}, {wMax.x, wMin.y, wMax.z},
+            {wMax.x, wMax.y, wMax.z}, {wMin.x, wMax.y, wMax.z},
+        };
+        const int bEdges[24] = {
+            0,1, 1,2, 2,3, 3,0,   // bottom face
+            4,5, 5,6, 6,7, 7,4,   // top face
+            0,4, 1,5, 2,6, 3,7    // vertical pillars
+        };
+        float boxVerts[72];
+        for (int i = 0; i < 24; ++i) {
+            boxVerts[i*3+0] = bCorners[bEdges[i]].x;
+            boxVerts[i*3+1] = bCorners[bEdges[i]].y;
+            boxVerts[i*3+2] = bCorners[bEdges[i]].z;
+        }
+        GLuint boxVAO = 0, boxVBO = 0;
+        glGenVertexArrays(1, &boxVAO);
+        glGenBuffers(1, &boxVBO);
+        glBindVertexArray(boxVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, boxVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(boxVerts), boxVerts, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+        glEnableVertexAttribArray(0);
+        glBindVertexArray(0);
 
         while (!win.shouldClose()) {
             double now = glfwGetTime();
@@ -354,21 +402,6 @@ int main() {
             const glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(geomMat)));
             shader.set("uNormalMatrix", normalMatrix);
 
-            // World-space AABB from model-space bounds: transform all 8 corners.
-            {
-                glm::vec3 lo = geom.boundsMin(), hi = geom.boundsMax();
-                glm::vec3 wMin(FLT_MAX), wMax(-FLT_MAX);
-                for (int cx = 0; cx <= 1; ++cx)
-                for (int cy = 0; cy <= 1; ++cy)
-                for (int cz = 0; cz <= 1; ++cz) {
-                    glm::vec3 c(cx ? hi.x : lo.x, cy ? hi.y : lo.y, cz ? hi.z : lo.z);
-                    glm::vec3 w = glm::vec3(geomMat * glm::vec4(c, 1.0f));
-                    wMin = glm::min(wMin, w);
-                    wMax = glm::max(wMax, w);
-                }
-                shader.set("uBoundsMin", wMin);
-                shader.set("uBoundsMax", wMax);
-            }
             Frustum frustum;
             frustum.update(proj * view);
 
@@ -399,6 +432,18 @@ int main() {
             if (frustum.testSphere(geomCentre, geom.boundingRadius())) {
                 geom.draw(shader, geomMat);
                 ++drawn;
+            }
+
+            // Bounds AOV: draw AABB wireframe box after geometry.
+            if (viewMode == 3) {
+                glDepthMask(GL_FALSE);
+                lineShader.use();
+                lineShader.set("uVP", proj * view);
+                glBindVertexArray(boxVAO);
+                glDrawArrays(GL_LINES, 0, 24);
+                glBindVertexArray(0);
+                glDepthMask(GL_TRUE);
+                shader.use();
             }
 
             glEndQuery(GL_TIME_ELAPSED);
@@ -536,6 +581,8 @@ int main() {
         blurRt.destroy();
         glDeleteTextures(1, &noiseTex);
         glDeleteVertexArrays(1, &blitVAO);
+        glDeleteVertexArrays(1, &boxVAO);
+        glDeleteBuffers(1, &boxVBO);
         glDeleteQueries(GPU_QUERY_FRAMES, gpuQueries);
 
     } catch (const std::exception& e) {
