@@ -10,12 +10,12 @@ uniform vec3  uKernel[64];
 uniform mat4  uProj;
 uniform mat4  uInvProj;
 uniform vec2  uNoiseScale;    // framebuffer_size / 4.0
+uniform float uRadius;
+uniform float uBias;
 
 out float FragAO;
 
-const int   KERNEL_SIZE = 64;
-uniform float uRadius;
-uniform float uBias;
+const int KERNEL_SIZE = 64;
 
 vec3 viewPosFromDepth(vec2 uv, float depth) {
     vec4 ndc  = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);

@@ -173,8 +173,14 @@ Model Model::loadGLTF(const std::string& path) {
     if (model.m_submeshes.empty())
         throw std::runtime_error("cgltf: no renderable primitives found in " + path);
 
-    // Bounding sphere in model space (transform applied as model matrix at draw time).
+    // Bounding sphere and AABB in model space (transform applied as model matrix at draw time).
     model.m_boundingRadius = model.m_submeshes[0].mesh.boundingRadius();
+    for (const SubMesh& sm : model.m_submeshes) {
+        glm::vec3 lo = sm.mesh.boundsMin();
+        glm::vec3 hi = sm.mesh.boundsMax();
+        model.m_boundsMin = glm::min(model.m_boundsMin, lo);
+        model.m_boundsMax = glm::max(model.m_boundsMax, hi);
+    }
 
     return model;
 }

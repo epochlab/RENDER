@@ -157,13 +157,13 @@ void HUD::draw(FrameStats& s) {
     // ── AOV ───────────────────────────────────────────────────
     sectionHeader("AOV");
     static const char* k_modeNames[] = {
-        "beauty", "wireframe", "alpha", "depth", "world_pos",
+        "beauty", "wireframe", "bounds", "alpha", "depth", "world_pos",
         "world_normals", "uv", "albedo", "direct_diffuse", "direct_refl",
         "shading_normal", "ao", "fresnel"
     };
     int modeIdx = s.viewMode - 1;
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 13))
+    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 14))
         s.viewMode = modeIdx + 1;
 
     // ── HDRI ──────────────────────────────────────────────────

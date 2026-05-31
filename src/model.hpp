@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <cfloat>
 #include <glm/glm.hpp>
 #include "mesh.hpp"
 #include "texture.hpp"
@@ -22,6 +23,8 @@ public:
     const glm::mat4& transform()      const { return m_transform; }
     float            boundingRadius() const { return m_boundingRadius; }
     glm::vec3        centre()         const { return m_centre; }
+    glm::vec3        boundsMin()      const { return m_boundsMin; }
+    glm::vec3        boundsMax()      const { return m_boundsMax; }
     int              triangleCount()  const;
     int              vertexCount()    const;
 
@@ -36,6 +39,8 @@ private:
     glm::mat4  m_transform{1.0f};
     float      m_boundingRadius = 0.0f;
     glm::vec3  m_centre{};
+    glm::vec3  m_boundsMin{ FLT_MAX};
+    glm::vec3  m_boundsMax{-FLT_MAX};
 
     Model() = default;
 };

@@ -64,9 +64,10 @@ The overlay panel (top-left) shows frame timing, memory, viewport, scene stats, 
 |------|---------|
 | beauty | PBR: Fresnel-weighted diffuse + specular IBL |
 | wireframe | Triangle edges |
+| bounds | Flat grey geometry + yellow AABB wireframe box (GL_LINES, depth-tested) |
 | alpha | Albedo alpha channel |
 | depth | Linearised scene depth |
-| world_pos | World-space position |
+| world_pos | World-space position normalised within scene AABB |
 | world_normals | World-space vertex normals |
 | uv | UV coordinates |
 | albedo | Raw albedo texture |
@@ -156,7 +157,8 @@ src/
 ├── model.hpp/.cpp    — glTF 2.0 loader (cgltf), Model/SubMesh, node transform walk
 └── cgltf_impl.cpp    — cgltf single-header implementation unit
 shaders/
-├── basic.vert/frag   — MVP transform, G-buffer MRT, PBR BSDF, 13 AOV modes
+├── basic.vert/frag   — MVP transform, G-buffer MRT, PBR BSDF, 14 AOV modes
+├── line.vert/frag    — flat-colour GL_LINES pass for the bounds AOV bounding box
 ├── sky.vert/frag     — equirectangular HDRI skydome (rotation, exposure, flip)
 ├── ssao.vert/frag    — SSAO compute pass (64-sample kernel, depth reconstruction)
 ├── ssao_blur.frag    — 5×5 box blur on raw SSAO
@@ -180,7 +182,7 @@ profile.json          — runtime scene config (camera, render, HDRI, scene, sha
 | GUI & Debug — native macOS menu, crosshair, HDRI controls, AOV remap | ✓ |
 | Render Performance — uniform cache, CPU normal matrix, half-res SSAO, release preset | ✓ |
 
-| Quick fixes - World position still looks incorrect (image), Add geometry bounds AOV after wireframe, 'Sky Background' show/hide menu button doesn't work but profile toggle does | planned |
+| Quick fixes — world_pos AABB normalisation, bounds AOV, Sky Background menu toggle | ✓ |
 
 | Logging & Diagnostics — debug logging, warnings, errors, renderer statistics, screenshot metadata | planned |
 | Performance Profiling (GUI) — render time, rays/sec, samples/sec, memory usage | planned |
