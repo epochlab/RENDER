@@ -448,7 +448,6 @@ int main() {
             // Merge native menu one-shot actions into stats, then sync checkmarks.
             if (menuFlags.doCapture)  { stats.doCapture  = true; menuFlags.doCapture  = false; }
             if (menuFlags.doSaveJson) { stats.doSaveJson = true; menuFlags.doSaveJson = false; }
-            if (menuFlags.doQuit)     { stats.doQuit     = true; menuFlags.doQuit     = false; }
             menuFlags.skyVisible = skyVisible;
             menuFlags.showPanel  = stats.showPanel;
             syncOsxMenuBar(menuFlags);
@@ -486,9 +485,6 @@ int main() {
                 std::cout << "Profile saved.\n";
                 stats.doSaveJson = false;
             }
-
-            if (stats.doQuit)
-                glfwSetWindowShouldClose(win.handle(), GLFW_TRUE);
 
             win.swapAndPoll();
         }

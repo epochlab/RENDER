@@ -3,7 +3,6 @@
 struct OsxMenuFlags {
     bool doCapture   = false;
     bool doSaveJson  = false;
-    bool doQuit      = false;
     bool skyVisible  = false;
     bool showPanel   = true;
 };

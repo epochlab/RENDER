@@ -66,7 +66,6 @@ struct FrameStats {
     bool        showPanel     = true;
     bool        doCapture     = false;
     bool        doSaveJson    = false;
-    bool        doQuit        = false;
 };
 
 class HUD {

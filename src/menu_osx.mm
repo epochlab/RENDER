@@ -5,7 +5,6 @@
 @property (nonatomic, assign) OsxMenuFlags* flags;
 - (void)actionCapture:(id)sender;
 - (void)actionSaveJson:(id)sender;
-- (void)actionClose:(id)sender;
 - (void)actionSkyToggle:(id)sender;
 - (void)actionPanelToggle:(id)sender;
 @end
@@ -13,7 +12,6 @@
 @implementation AppMenuDelegate
 - (void)actionCapture:(id)sender     { _flags->doCapture  = true; }
 - (void)actionSaveJson:(id)sender    { _flags->doSaveJson = true; }
-- (void)actionClose:(id)sender       { _flags->doQuit     = true; }
 - (void)actionSkyToggle:(id)sender   { _flags->skyVisible = !_flags->skyVisible; }
 - (void)actionPanelToggle:(id)sender { _flags->showPanel  = !_flags->showPanel;  }
 @end
@@ -36,21 +34,6 @@ void initOsxMenuBar(OsxMenuFlags* flags) {
                keyEquivalent:@"q"];
     appItem.submenu = appMenu;
     [mainMenu addItem:appItem];
-
-    // ── File menu ─────────────────────────────────────────────
-    NSMenuItem* fileItem = [[NSMenuItem alloc] initWithTitle:@"File"
-                                                      action:nil
-                                               keyEquivalent:@""];
-    NSMenu* fileMenu = [[NSMenu alloc] initWithTitle:@"File"];
-
-    NSMenuItem* closeItem = [[NSMenuItem alloc] initWithTitle:@"Close"
-                                                       action:@selector(actionClose:)
-                                                keyEquivalent:@"w"];
-    closeItem.target = g_delegate;
-    [fileMenu addItem:closeItem];
-
-    fileItem.submenu = fileMenu;
-    [mainMenu addItem:fileItem];
 
     // ── View menu ─────────────────────────────────────────────
     NSMenuItem* viewItem = [[NSMenuItem alloc] initWithTitle:@"View"

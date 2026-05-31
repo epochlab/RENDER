@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(kodak CXX OBJCXX)
+project(KODAK CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -66,7 +66,7 @@ target_include_directories(imgui_lib PUBLIC
 target_link_libraries(imgui_lib PUBLIC glfw OpenGL::GL)
 target_compile_definitions(imgui_lib PUBLIC GL_SILENCE_DEPRECATION GLFW_INCLUDE_GLCOREARB)
 
-add_executable(kodak
+add_executable(KODAK
     src/main.cpp
     src/window.cpp
     src/shader.cpp
@@ -82,14 +82,14 @@ add_executable(kodak
     external/stb/stb_image.cpp
 )
 
-target_include_directories(kodak PRIVATE src external/stb ${cgltf_SOURCE_DIR})
+target_include_directories(KODAK PRIVATE src external/stb ${cgltf_SOURCE_DIR})
 
-target_compile_definitions(kodak PRIVATE
+target_compile_definitions(KODAK PRIVATE
     GL_SILENCE_DEPRECATION
     GLFW_INCLUDE_GLCOREARB
 )
 
-target_link_libraries(kodak PRIVATE
+target_link_libraries(KODAK PRIVATE
     glfw
     OpenGL::GL
     glm::glm
