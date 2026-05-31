@@ -22,7 +22,6 @@ void main() {
     vUV       = aUV;
 
     vec3 N = normalize(uNormalMatrix * aNormal);
-
     vNormal = N;
 
     if (dot(aTangent.xyz, aTangent.xyz) > 1e-5) {

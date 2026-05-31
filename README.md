@@ -157,7 +157,8 @@ src/
 ├── model.hpp/.cpp    — glTF 2.0 loader (cgltf), Model/SubMesh, node transform walk
 └── cgltf_impl.cpp    — cgltf single-header implementation unit
 shaders/
-├── basic.vert/frag   — MVP transform, G-buffer MRT, PBR BSDF, 13 AOV modes
+├── basic.vert/frag   — MVP transform, G-buffer MRT, PBR BSDF, 14 AOV modes
+├── line.vert/frag    — flat-colour GL_LINES pass for the bounds AOV bounding box
 ├── sky.vert/frag     — equirectangular HDRI skydome (rotation, exposure, flip)
 ├── ssao.vert/frag    — SSAO compute pass (64-sample kernel, depth reconstruction)
 ├── ssao_blur.frag    — 5×5 box blur on raw SSAO

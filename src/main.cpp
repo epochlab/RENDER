@@ -81,10 +81,6 @@ struct RenderTarget {
         w = h = 0;
     }
 
-    void ensureSize(int width, int height) {
-        if (w != width || h != height) { destroy(); create(width, height); }
-    }
-
     // RGB16F × 2 + DEPTH32F: (6+6+4) bytes/pixel.
     size_t bytes() const { return static_cast<size_t>(w) * h * (6 + 6 + 4); }
 };
@@ -258,8 +254,8 @@ int main() {
         sceneRot = glm::rotate(sceneRot, glm::radians(cfg.scene.rotation.y), glm::vec3(0,1,0));
         sceneRot = glm::rotate(sceneRot, glm::radians(cfg.scene.rotation.z), glm::vec3(0,0,1));
 
-        // ── World-space AABB (constant — geomMat doesn't change at runtime) ────
-        const glm::mat4 geomMatStatic = sceneRot * geom.transform();
+        // geomMat, AABB, and box VAO are constant — geomMat doesn't change at runtime.
+        const glm::mat4 geomMat = sceneRot * geom.transform();
         glm::vec3 wMin(FLT_MAX), wMax(-FLT_MAX);
         {
             glm::vec3 lo = geom.boundsMin(), hi = geom.boundsMax();
@@ -267,7 +263,7 @@ int main() {
             for (int cy = 0; cy <= 1; ++cy)
             for (int cz = 0; cz <= 1; ++cz) {
                 glm::vec3 c(cx ? hi.x : lo.x, cy ? hi.y : lo.y, cz ? hi.z : lo.z);
-                glm::vec3 w = glm::vec3(geomMatStatic * glm::vec4(c, 1.0f));
+                glm::vec3 w = glm::vec3(geomMat * glm::vec4(c, 1.0f));
                 wMin = glm::min(wMin, w);
                 wMax = glm::max(wMax, w);
             }
@@ -398,7 +394,6 @@ int main() {
             shader.set("uMetallic",        cfg.shading.metallic);
             shader.set("uIOR",             cfg.shading.ior);
 
-            const glm::mat4 geomMat    = sceneRot * geom.transform();
             const glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(geomMat)));
             shader.set("uNormalMatrix", normalMatrix);
 
