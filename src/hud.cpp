@@ -73,9 +73,9 @@ void HUD::draw(FrameStats& s) {
     // ── View ──────────────────────────────────────────────────
     sectionHeader("View");
     static const char* k_modeNames[] = {
-        "Beauty", "Wireframe", "Alpha", "Depth", "Position",
-        "Normals", "UV", "Albedo", "Direct Diffuse", "AO",
-        "Direct Reflection", "Shading Normal"
+        "Beauty", "Wireframe", "Alpha", "Depth", "world_pos",
+        "world_normals", "UV", "Albedo", "_diffuse", "_refl",
+        "Shading Normal", "AO"
     };
     int modeIdx = s.viewMode - 1;
     ImGui::SetNextItemWidth(-1.0f);
@@ -103,9 +103,9 @@ void HUD::draw(FrameStats& s) {
 
     // ── Viewport ──────────────────────────────────────────────
     sectionHeader("Viewport");
-    if (s.renderScale > 1)
+    if (s.downsample > 1)
         ImGui::Text("%d x %d  (x%d -> %d x %d)",
-                    s.width, s.height, s.renderScale,
+                    s.width, s.height, s.downsample,
                     s.logicalWidth, s.logicalHeight);
     else
         ImGui::Text("%d x %d", s.width, s.height);

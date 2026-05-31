@@ -119,9 +119,9 @@ int main() {
         AppConfig cfg = loadConfig("profile.json");
         const int BASE_W      = cfg.render.width  > 0 ? cfg.render.width  : 2048;
         const int BASE_H      = cfg.render.height > 0 ? cfg.render.height : 1152;
-        const int renderScale = cfg.render.scale  > 0 ? cfg.render.scale  : 2;
+        const int downsample = cfg.render.downsample > 0 ? cfg.render.downsample : 2;
 
-        Window win(BASE_W / renderScale, BASE_H / renderScale, "BOUNCE");
+        Window win(BASE_W / downsample, BASE_H / downsample, "BOUNCE");
         glfwSetCursorPosCallback(win.handle(), onMouseMove);
         glfwSetWindowSizeCallback(win.handle(), [](GLFWwindow*, int, int) {
             if (g_camera) g_camera->resetMouse();
@@ -153,7 +153,8 @@ int main() {
 
         Shader blurShader("shaders/ssao.vert", "shaders/ssao_blur.frag");
         blurShader.use();
-        blurShader.set("uSSAO", 0);
+        blurShader.set("uSSAO",        0);
+        blurShader.set("uBlurRadius",  cfg.shading.ssaoBlurRadius);
 
         // ── Camera ─────────────────────────────────────────────────
         Camera camera(cfg.camera.position, win.aspectRatio(),
@@ -369,6 +370,7 @@ int main() {
             shader.set("uHdriExposure",    cfg.hdri.exposure);
             shader.set("uHdriRot",         hdriRotRad);
             shader.set("uCamPos",          camera.position());
+            shader.set("uRoughness",       cfg.shading.roughness);
 
             const glm::mat4 mRock = sceneRot * rock.transform();
             Frustum frustum;
@@ -415,6 +417,8 @@ int main() {
             ssaoShader.use();
             ssaoShader.set("uProj",    proj);
             ssaoShader.set("uInvProj", invProj);
+            ssaoShader.set("uRadius",  cfg.shading.ssaoRadius);
+            ssaoShader.set("uBias",    cfg.shading.ssaoBias);
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, rt.normalTex);
             glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, rt.depthTex);
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, noiseTex);
@@ -458,7 +462,7 @@ int main() {
             stats.totalVertices   = rock.vertexCount();
             stats.width         = BASE_W;
             stats.height        = BASE_H;
-            stats.renderScale   = renderScale;
+            stats.downsample    = downsample;
             { int lw, lh; glfwGetWindowSize(win.handle(), &lw, &lh);
               stats.logicalWidth = lw; stats.logicalHeight = lh; }
             stats.camPos          = camera.position();

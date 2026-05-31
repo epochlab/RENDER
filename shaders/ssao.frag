@@ -14,8 +14,8 @@ uniform vec2  uNoiseScale;    // framebuffer_size / 4.0
 out float FragAO;
 
 const int   KERNEL_SIZE = 64;
-const float RADIUS      = 0.5;
-const float BIAS        = 0.025;
+uniform float uRadius;
+uniform float uBias;
 
 vec3 viewPosFromDepth(vec2 uv, float depth) {
     vec4 ndc  = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
@@ -41,7 +41,7 @@ void main() {
     float occlusion    = 0.0;
 
     for (int i = 0; i < KERNEL_SIZE; ++i) {
-        vec3 sampleVS = fragPosVS + TBN * uKernel[i] * RADIUS;
+        vec3 sampleVS = fragPosVS + TBN * uKernel[i] * uRadius;
 
         vec4 offset = uProj * vec4(sampleVS, 1.0);
         offset.xyz /= offset.w;
@@ -54,8 +54,8 @@ void main() {
 
         validSamples++;
         vec3  samplePosVS = viewPosFromDepth(offset.xy, sampleDepth);
-        float rangeCheck  = smoothstep(0.0, 1.0, RADIUS / abs(fragPosVS.z - samplePosVS.z));
-        occlusion += (samplePosVS.z >= sampleVS.z + BIAS ? 1.0 : 0.0) * rangeCheck;
+        float rangeCheck  = smoothstep(0.0, 1.0, uRadius / abs(fragPosVS.z - samplePosVS.z));
+        occlusion += (samplePosVS.z >= sampleVS.z + uBias ? 1.0 : 0.0) * rangeCheck;
     }
 
     FragAO = validSamples > 0 ? 1.0 - (occlusion / float(validSamples)) : 1.0;

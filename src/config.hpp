@@ -14,11 +14,18 @@ struct AppConfig {
     } camera;
 
     struct Render {
-        int scale      = 2;
+        int downsample = 2;
         int iblSamples = 16;
         int width      = 2048;
         int height     = 1152;
     } render;
+
+    struct Shading {
+        float roughness      = 0.3f;
+        float ssaoRadius     = 0.5f;
+        float ssaoBias       = 0.025f;
+        int   ssaoBlurRadius = 2;     // 1 = 3×3, 2 = 5×5
+    } shading;
 
     struct Hdri {
         std::string path    = "assets/hdr/HDR_111_Parking_Lot_2_Env.hdr";

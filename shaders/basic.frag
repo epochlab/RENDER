@@ -10,17 +10,20 @@ in vec2 vUV;
 uniform sampler2D uAlbedo;
 uniform sampler2D uSkyHDR;     // equirectangular HDRI for diffuse irradiance
 uniform sampler2D uNormalMap;  // tangent-space normal map (unit 2)
-uniform int       uViewMode;   // 1=beauty 2=wire 3=alpha 4=depth 5=pos 6=normals 7=uv
-                               // 8=albedo 9=direct_diffuse 10=ao 11=direct_reflection 12=shading_normal
+uniform int       uViewMode;   // 1=beauty  2=wire    3=alpha   4=depth    5=world_pos
+                               // 6=world_normals 7=uv  8=albedo  9=_diffuse 10=_refl
+                               // 11=shading_normal  12=ao
 uniform float     uNear;
 uniform float     uFar;
 uniform float     uHdriExposure;
 uniform vec3      uHdriRot;    // XYZ Euler rotation in radians — must match sky shader
 uniform int       uIblSamples; // hemisphere sample count (profile.json render.iblSamples)
 uniform vec3      uCamPos;     // world-space camera position (for reflection vector)
+uniform float     uRoughness;  // PBR roughness: 0 = mirror, 1 = fully diffuse
+uniform mat4      uView;       // view matrix — used to transform shading normal for SSAO
 
 layout(location = 0) out vec4 gColor;
-layout(location = 1) out vec4 gNormal;  // view-space normals for SSAO
+layout(location = 1) out vec4 gNormal;  // view-space shading normals for SSAO
 
 const float PI = 3.14159265358979;
 
@@ -41,16 +44,26 @@ vec3 sampleEnvDir(vec3 dir) {
     return texture(uSkyHDR, vec2(phi / (2.0 * PI) + 0.5, 1.0 - theta / PI)).rgb * uHdriExposure;
 }
 
+// TBN-perturbed shading normal from normal map.
+vec3 shadingNormal() {
+    vec3 nts = texture(uNormalMap, vUV).rgb * 2.0 - 1.0;
+    mat3 TBN = mat3(normalize(vTangent), normalize(vBitangent), normalize(vNormal));
+    return normalize(TBN * nts);
+}
+
 // Cosine-weighted Fibonacci hemisphere integration (Lambertian irradiance).
-vec3 irradianceIBL(vec3 n) {
+// roughness modulates the cosine distribution: 1.0 = standard Lambertian.
+vec3 irradianceIBL(vec3 n, float roughness) {
     vec3 up        = abs(n.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
     vec3 tangent   = normalize(cross(up, n));
     vec3 bitangent = cross(n, tangent);
 
     const float PHI = 2.3999632; // golden angle = 2π/φ²
+    float exponent  = 0.5 + 0.5 * clamp(roughness, 0.0, 1.0);
     vec3 acc = vec3(0.0);
     for (int i = 0; i < uIblSamples; i++) {
-        float cosTheta = sqrt(1.0 - (float(i) + 0.5) / float(uIblSamples));
+        float u        = (float(i) + 0.5) / float(uIblSamples);
+        float cosTheta = pow(1.0 - u, exponent);
         float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
         float phi      = PHI * float(i);
         vec3  local    = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
@@ -60,15 +73,32 @@ vec3 irradianceIBL(vec3 n) {
     return acc / float(uIblSamples);
 }
 
-// TBN-perturbed shading normal from normal map.
-vec3 shadingNormal() {
-    vec3 nts = texture(uNormalMap, vUV).rgb * 2.0 - 1.0;
-    mat3 TBN = mat3(normalize(vTangent), normalize(vBitangent), normalize(vNormal));
-    return normalize(TBN * nts);
+// GGX-lobe IBL for specular reflection.
+// roughness=0 → perfect mirror (all samples along reflect dir), roughness=1 → very blurry.
+vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
+    float a  = roughness * roughness;
+    vec3  r  = reflect(-v, n);
+    vec3  up = abs(r.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3  T  = normalize(cross(up, r));
+    vec3  B  = cross(r, T);
+
+    const float PHI = 2.3999632;
+    vec3 acc = vec3(0.0);
+    for (int i = 0; i < uIblSamples; i++) {
+        float u     = (float(i) + 0.5) / float(uIblSamples);
+        float phi   = PHI * float(i);
+        float denom = max(1.0 + (a * a - 1.0) * u, 1e-6);
+        float cosT  = sqrt((1.0 - u) / denom);
+        float sinT  = sqrt(max(0.0, 1.0 - cosT * cosT));
+        vec3  local = vec3(sinT * cos(phi), sinT * sin(phi), cosT);
+        acc += sampleEnvDir(normalize(T * local.x + B * local.y + r * local.z));
+    }
+    return acc / float(uIblSamples);
 }
 
 void main() {
-    gNormal = vec4(normalize(vNormalVS) * 0.5 + 0.5, 1.0);
+    // SSAO G-buffer: shading normal (with normal map) in view space.
+    gNormal = vec4(normalize(mat3(uView) * shadingNormal()) * 0.5 + 0.5, 1.0);
 
     if (uViewMode == 2) {
         // Wireframe
@@ -86,11 +116,11 @@ void main() {
         gColor = vec4(d, d, d, 1.0);
 
     } else if (uViewMode == 5) {
-        // World-space position
-        gColor = vec4(clamp(vFragPos * 0.1 + 0.5, 0.0, 1.0), 1.0);
+        // world_pos — fract gives full-range colour at any scene scale
+        gColor = vec4(fract(vFragPos), 1.0);
 
     } else if (uViewMode == 6) {
-        // World-space vertex normals (unperturbed)
+        // world_normals — world-space vertex normals (unperturbed)
         gColor = vec4(normalize(vNormal) * 0.5 + 0.5, 1.0);
 
     } else if (uViewMode == 7) {
@@ -102,23 +132,22 @@ void main() {
         gColor = vec4(texture(uAlbedo, vUV).rgb, 1.0);
 
     } else if (uViewMode == 9) {
-        // Direct Diffuse — HDRI irradiance using shading normal, no albedo
-        gColor = vec4(irradianceIBL(shadingNormal()), 1.0);
+        // _diffuse — HDRI irradiance using shading normal, no albedo
+        gColor = vec4(irradianceIBL(shadingNormal(), uRoughness), 1.0);
+
+    } else if (uViewMode == 10) {
+        // _refl — GGX-lobe IBL sample from shading normal
+        vec3 viewDir = normalize(uCamPos - vFragPos);
+        gColor = vec4(reflectionIBL(shadingNormal(), viewDir, uRoughness), 1.0);
 
     } else if (uViewMode == 11) {
-        // Direct Reflection — perfect mirror IBL sample from shading normal
-        vec3 viewDir = normalize(uCamPos - vFragPos);
-        vec3 reflDir = reflect(-viewDir, shadingNormal());
-        gColor = vec4(sampleEnvDir(reflDir), 1.0);
-
-    } else if (uViewMode == 12) {
         // Shading Normal — TBN-perturbed normal visualised as colour
         gColor = vec4(shadingNormal() * 0.5 + 0.5, 1.0);
 
     } else {
-        // Mode 1 (Beauty) and mode 10 (AO, display overridden by blit.frag)
+        // Mode 1 (Beauty) and mode 12 (AO, display overridden by blit.frag)
         vec3 albedo     = texture(uAlbedo, vUV).rgb;
-        vec3 irradiance = irradianceIBL(shadingNormal());
+        vec3 irradiance = irradianceIBL(shadingNormal(), uRoughness);
         gColor = vec4(albedo * irradiance, 1.0);
     }
 }

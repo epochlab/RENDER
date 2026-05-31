@@ -30,7 +30,7 @@ struct FrameStats {
     int       height          = 0;
     int       logicalWidth    = 0;   // logical window size (on-screen pixels)
     int       logicalHeight   = 0;
-    int       renderScale     = 1;
+    int       downsample      = 1;
 
     // Scene geometry
     int       drawCalls       = 0;   // draw calls actually issued (after culling)
