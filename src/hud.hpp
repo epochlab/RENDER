@@ -49,7 +49,6 @@ struct FrameStats {
     glm::vec3 camPos          = {};
     float     camRotX         = 0.0f;   // pitch
     float     camRotY         = 0.0f;   // yaw
-    float     camRotZ         = 0.0f;   // roll (unused, always 0)
     float     camFilmbackMm   = 36.0f;
     float     camFocalLengthMm = 31.2f;
     float     camNear         = 0.0f;

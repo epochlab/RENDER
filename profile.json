@@ -3,18 +3,18 @@
     "far": 10.0,
     "filmback": 35.0,
     "focalLength": 50.0,
-    "near": 0.10000000149011612,
-    "pitch": -3.349963426589966,
+    "near": 0.1,
+    "pitch": -12.1,
     "position": [
-      -1.1017398834228516,
-      0.28648003935813904,
-      2.8819398880004883
+      -0.076,
+      0.664,
+      2.66
     ],
-    "yaw": -73.50003814697266
+    "yaw": -94.5
   },
   "hdri": {
     "exposure": 2.0,
-    "path": "assets/hdr/HDR_111_Parking_Lot_2/HDR_111_Parking_Lot_2_Bg.jpg",
+    "path": "assets/hdr/HDR_110_Tunnel/HDR_110_Tunnel_Bg.jpg",
     "rotation": [
       0.0,
       0.0,
@@ -28,12 +28,6 @@
     "iblSamples": 16,
     "width": 2048
   },
-  "shading": {
-    "roughness": 0.3,
-    "ssaoBlurRadius": 2,
-    "ssaoBias": 0.025,
-    "ssaoRadius": 0.5
-  },
   "scene": {
     "geometry": "assets/geo/broken_stump_rkswd_ue_high/rkswd_tier_1.gltf",
     "rotation": [
@@ -41,5 +35,13 @@
       -90.0,
       -90.0
     ]
+  },
+  "shading": {
+    "roughness": 0.85,
+    "metallic": 0.0,
+    "ior": 1.5,
+    "ssaoBias": 0.025,
+    "ssaoBlurRadius": 2,
+    "ssaoRadius": 0.5
   }
 }

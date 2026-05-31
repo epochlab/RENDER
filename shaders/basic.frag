@@ -1,7 +1,6 @@
 #version 330 core
 
 in vec3 vNormal;
-in vec3 vNormalVS;
 in vec3 vTangent;
 in vec3 vBitangent;
 in vec3 vFragPos;
@@ -12,7 +11,7 @@ uniform sampler2D uSkyHDR;     // equirectangular HDRI for diffuse irradiance
 uniform sampler2D uNormalMap;  // tangent-space normal map (unit 2)
 uniform int       uViewMode;   // 1=beauty  2=wire    3=alpha   4=depth    5=world_pos
                                // 6=world_normals 7=uv  8=albedo  9=_diffuse 10=_refl
-                               // 11=shading_normal  12=ao
+                               // 11=shading_normal  12=ao  13=fresnel
 uniform float     uNear;
 uniform float     uFar;
 uniform float     uHdriExposure;
@@ -20,12 +19,15 @@ uniform vec3      uHdriRot;    // XYZ Euler rotation in radians — must match s
 uniform int       uIblSamples; // hemisphere sample count (profile.json render.iblSamples)
 uniform vec3      uCamPos;     // world-space camera position (for reflection vector)
 uniform float     uRoughness;  // PBR roughness: 0 = mirror, 1 = fully diffuse
+uniform float     uMetallic;  // 0 = dielectric, 1 = metal
+uniform float     uIOR;       // index of refraction for dielectrics (default 1.5)
 uniform mat4      uView;       // view matrix — used to transform shading normal for SSAO
 
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gNormal;  // view-space shading normals for SSAO
 
-const float PI = 3.14159265358979;
+const float PI  = 3.14159265358979;
+const float PHI = 2.3999632;  // golden angle = 2π/φ²
 
 vec3 rotateXYZ(vec3 v, vec3 angles) {
     float cx = cos(angles.x), sx = sin(angles.x);
@@ -58,7 +60,6 @@ vec3 irradianceIBL(vec3 n, float roughness) {
     vec3 tangent   = normalize(cross(up, n));
     vec3 bitangent = cross(n, tangent);
 
-    const float PHI = 2.3999632; // golden angle = 2π/φ²
     float exponent  = 0.5 + 0.5 * clamp(roughness, 0.0, 1.0);
     vec3 acc = vec3(0.0);
     for (int i = 0; i < uIblSamples; i++) {
@@ -77,6 +78,7 @@ vec3 irradianceIBL(vec3 n, float roughness) {
 // roughness=0 → perfect mirror. roughness=1 → cosine-weighted hemisphere on the surface
 // normal (= diffuse irradiance). Lobe centre shifts from reflect dir to normal as a=r² grows.
 vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
+    roughness = clamp(roughness, 0.0, 1.0);
     float a   = roughness * roughness;
     vec3  r   = reflect(-v, n);
     // Shift lobe centre: reflection dir at roughness=0, surface normal at roughness=1.
@@ -85,7 +87,6 @@ vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
     vec3  T   = normalize(cross(up, dir));
     vec3  B   = cross(dir, T);
 
-    const float PHI = 2.3999632;
     vec3 acc = vec3(0.0);
     for (int i = 0; i < uIblSamples; i++) {
         float u     = (float(i) + 0.5) / float(uIblSamples);
@@ -97,6 +98,26 @@ vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
         acc += sampleEnvDir(normalize(T * local.x + B * local.y + dir * local.z));
     }
     return acc / float(uIblSamples);
+}
+
+// IOR must be > 1 for a real interface; IOR=1 → F0=0 → no reflection at any angle.
+vec3 schlickFresnel(vec3 F0, float cosTheta) {
+    if (dot(F0, F0) < 1e-8) return vec3(0.0);
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// Smith view-side masking (IBL remap k=a²/2, Karis 2013).
+// Goes to 0 at grazing — counteracts Fresnel rim on rough surfaces.
+float geoSmithIBL(float NdotV, float a) {
+    float k = a * a * 0.5;
+    return NdotV / max(NdotV * (1.0 - k) + k, 1e-6);
+}
+
+// Effective Fresnel with geometric attenuation — use instead of raw schlickFresnel for Ls.
+vec3 fresnelWeighted(vec3 F0, float NdotV, float roughness) {
+    float a   = clamp(roughness, 0.0, 1.0);
+    float G_V = geoSmithIBL(NdotV, a);
+    return G_V * schlickFresnel(F0, NdotV);
 }
 
 void main() {
@@ -135,24 +156,45 @@ void main() {
         gColor = vec4(texture(uAlbedo, vUV).rgb, 1.0);
 
     } else if (uViewMode == 9) {
-        // _diffuse — HDRI irradiance using shading normal, no albedo
+        // _diffuse — full irradiance, no albedo, no Fresnel mask
         gColor = vec4(irradianceIBL(shadingNormal(), uRoughness), 1.0);
 
     } else if (uViewMode == 10) {
-        // _refl — GGX-lobe IBL sample from shading normal
-        vec3 viewDir = normalize(uCamPos - vFragPos);
-        gColor = vec4(reflectionIBL(shadingNormal(), viewDir, uRoughness), 1.0);
+        // _refl — geometry-attenuated Fresnel specular lobe
+        vec3  n       = shadingNormal();
+        vec3  viewDir = normalize(uCamPos - vFragPos);
+        float NoV     = max(dot(n, viewDir), 0.0);
+        vec3  albedo  = texture(uAlbedo, vUV).rgb;
+        float f0Dia   = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
+        vec3  F0      = mix(vec3(f0Dia), albedo, uMetallic);
+        vec3  F       = fresnelWeighted(F0, NoV, uRoughness);
+        gColor = vec4(F * reflectionIBL(n, viewDir, uRoughness), 1.0);
 
     } else if (uViewMode == 11) {
         // Shading Normal — TBN-perturbed normal visualised as colour
         gColor = vec4(shadingNormal() * 0.5 + 0.5, 1.0);
 
+    } else if (uViewMode == 13) {
+        // fresnel — geometry-attenuated F term (what actually weights Ls)
+        vec3  n       = shadingNormal();
+        vec3  viewDir = normalize(uCamPos - vFragPos);
+        float NoV     = max(dot(n, viewDir), 0.0);
+        vec3  albedo  = texture(uAlbedo, vUV).rgb;
+        float f0Dia   = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
+        vec3  F0      = mix(vec3(f0Dia), albedo, uMetallic);
+        gColor = vec4(fresnelWeighted(F0, NoV, uRoughness), 1.0);
+
     } else {
         // Mode 1 (Beauty) and mode 12 (AO, display overridden by blit.frag)
-        vec3 viewDir  = normalize(uCamPos - vFragPos);
-        vec3 albedo   = texture(uAlbedo, vUV).rgb;
-        vec3 diffuse  = albedo * irradianceIBL(shadingNormal(), uRoughness);
-        vec3 specular = reflectionIBL(shadingNormal(), viewDir, uRoughness);
-        gColor = vec4(mix(specular, diffuse, uRoughness), 1.0);
+        vec3  viewDir      = normalize(uCamPos - vFragPos);
+        vec3  albedo       = texture(uAlbedo, vUV).rgb;
+        vec3  n            = shadingNormal();
+        float NoV          = max(dot(n, viewDir), 0.0);
+        float f0Dielectric = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
+        vec3  F0           = mix(vec3(f0Dielectric), albedo, uMetallic);
+        vec3  F            = fresnelWeighted(F0, NoV, uRoughness);
+        vec3  Ld = albedo * (1.0 - F) * (1.0 - uMetallic) * irradianceIBL(n, uRoughness);
+        vec3  Ls = F * reflectionIBL(n, viewDir, uRoughness);
+        gColor   = vec4(Ld + Ls, 1.0);
     }
 }

@@ -75,11 +75,11 @@ void HUD::draw(FrameStats& s) {
     static const char* k_modeNames[] = {
         "beauty", "wireframe", "alpha", "depth", "world_pos",
         "world_normals", "uv", "albedo", "direct_diffuse", "direct_refl",
-        "shading_normal", "ao"
+        "shading_normal", "ao", "fresnel"
     };
     int modeIdx = s.viewMode - 1;
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 12))
+    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 13))
         s.viewMode = modeIdx + 1;
 
     // ── Frame ─────────────────────────────────────────────────
@@ -126,7 +126,7 @@ void HUD::draw(FrameStats& s) {
     // ── Camera ────────────────────────────────────────────────
     sectionHeader("Camera");
     ImGui::Text("pos  x %.2f   y %.2f   z %.2f", s.camPos.x, s.camPos.y, s.camPos.z);
-    ImGui::Text("rot  x %.1f   y %.1f   z %.1f", s.camRotX,  s.camRotY,  s.camRotZ);
+    ImGui::Text("rot  x %.1f   y %.1f", s.camRotX, s.camRotY);
     ImGui::Spacing();
     ImGui::Text("Filmback   %.1f mm", s.camFilmbackMm);
     ImGui::Text("Focal      %.1f mm", s.camFocalLengthMm);

@@ -42,7 +42,7 @@ Run from the **project root** (shaders load relative to the working directory):
 
 | Key | Mode |
 |-----|------|
-| 1 | Beauty (albedo × HDRI irradiance) |
+| 1 | Beauty (PBR: Fresnel-weighted diffuse + specular IBL) |
 | 2 | Wireframe |
 | 3 | Alpha |
 | 4 | Depth |
@@ -50,8 +50,9 @@ Run from the **project root** (shaders load relative to the working directory):
 | 6 | Normals |
 | 7 | UV |
 | 8 | Albedo |
-| 9 | Direct Diffuse |
-| 0 | AO (SSAO) |
+| 9 | Diffuse IBL (Fresnel-weighted, no albedo) |
+| 0 | Specular IBL (Fresnel-weighted) |
+| - | Fresnel (F term — via HUD dropdown) |
 
 ## Profile (`profile.json`)
 
@@ -73,6 +74,14 @@ All fields are optional; missing keys fall back to defaults.
     "width":      2048,         // render resolution width (pixels)
     "height":     1152,         // render resolution height (pixels)
     "iblSamples": 16            // IBL hemisphere sample count
+  },
+  "shading": {
+    "roughness":      0.3,      // GGX roughness: 0 = mirror, 1 = fully diffuse
+    "metallic":       0.0,      // 0 = dielectric, 1 = metal
+    "ior":            1.5,      // index of refraction (1.5 ≈ plastic/glass)
+    "ssaoRadius":     0.5,      // SSAO hemisphere radius in world units
+    "ssaoBias":       0.025,    // SSAO depth bias
+    "ssaoBlurRadius": 2         // SSAO blur: 1 = 3×3, 2 = 5×5
   },
   "hdri": {
     "path":     "assets/hdr/…", // equirectangular .hdr / .jpg path
@@ -129,16 +138,16 @@ profile.json         — runtime scene config (camera, render scale, HDRI, geome
 
 ## Roadmap
 
-| # | Milestone | Status |
-|---|-----------|--------|
-| 1 | Hello 3D World — window, camera, primitives, diffuse shading | ✓ done |
-| 2 | Texture Loading — stb_image, UV coords, Mesh::sphere() | ✓ done |
-| 3 | Debug HUD — Dear ImGui overlay, 6 view modes, FBO render scale | ✓ done |
-| 4 | Optimisation — smooth FPS, non-stalling GPU timer, GPU-mem tracking, uniform batching, frustum culling | ✓ done |
-| 5 | Geometry Loading — glTF 2.0 (cgltf): meshes, materials, textures, scene hierarchy | ✓ done |
-| 6 | HDRI Skydome — equirectangular HDR sky, HDRI diffuse irradiance, linear pipeline | ✓ done |
-| 7 | Project Quality — SSAO, JSON config, render scale fix, Z-up correction, frame capture | ✓ done |
-| 8 | Orbit Camera — LMB pivot orbit, depth-sampled pivot, diffuse IBL fix, HDRI rotation | ✓ done |
-| 9 | PBR Shader / Material System — Cook-Torrance BRDF, IBL, ORM maps | planned |
-| 10 | Camera & Lens Effects — exposure, bloom, DoF | planned |
-| 10 | Advanced — OpenEXR I/O, Alembic geometry caches | planned |
+| Task | Status |
+|------|--------|
+| Hello 3D World — window, camera, primitives, diffuse shading | ✓ done |
+| Texture Loading — stb_image, UV coords, Mesh::sphere() | ✓ done |
+| Debug HUD — Dear ImGui overlay, 6 view modes, FBO render scale | ✓ done |
+| Optimisation — smooth FPS, non-stalling GPU timer, GPU-mem tracking, frustum culling | ✓ done |
+| Geometry Loading — glTF 2.0 (cgltf): meshes, materials, textures, scene hierarchy | ✓ done |
+| HDRI Skydome — equirectangular HDR sky, HDRI diffuse irradiance, linear pipeline | ✓ done |
+| Project Quality — SSAO, JSON config, render scale fix, Z-up correction, frame capture | ✓ done |
+| Orbit Camera — LMB pivot orbit, depth-sampled pivot, diffuse IBL fix, HDRI rotation | ✓ done |
+| PBR BSDF — Schlick Fresnel, IOR-derived F0, energy-conserving Ld+Ls, metallic | ✓ done |
+| Camera & Lens Effects — exposure, bloom, DoF | planned |
+| Advanced — OpenEXR I/O, Alembic geometry caches | planned |

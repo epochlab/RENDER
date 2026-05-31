@@ -25,7 +25,6 @@ static void onMouseMove(GLFWwindow*, double xpos, double ypos) {
     if (g_camera) g_camera->processMouseMove(xpos, ypos);
 }
 
-
 static float queryMemoryMB() {
     task_vm_info_data_t info;
     mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
@@ -371,6 +370,8 @@ int main() {
             shader.set("uHdriRot",         hdriRotRad);
             shader.set("uCamPos",          camera.position());
             shader.set("uRoughness",       cfg.shading.roughness);
+            shader.set("uMetallic",        cfg.shading.metallic);
+            shader.set("uIOR",             cfg.shading.ior);
 
             const glm::mat4 mRock = sceneRot * rock.transform();
             Frustum frustum;

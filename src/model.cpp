@@ -101,7 +101,7 @@ static void walkNodes(const cgltf_node* const* nodes, cgltf_size count,
                 }
 
                 // ── Resolve texture paths and load textures ──────────
-                std::string albedoPath, normalPath, ormPath;
+                std::string albedoPath, normalPath;
                 if (prim.material) {
                     const cgltf_material* mat = prim.material;
                     auto resolve = [&](const cgltf_texture* tex) -> std::string {
@@ -110,23 +110,13 @@ static void walkNodes(const cgltf_node* const* nodes, cgltf_size count,
                         return {};
                     };
                     albedoPath = resolve(mat->pbr_metallic_roughness.base_color_texture.texture);
-                    ormPath    = resolve(mat->pbr_metallic_roughness.metallic_roughness_texture.texture);
                     normalPath = resolve(mat->normal_texture.texture);
                 }
 
-                Texture albedo = albedoPath.empty()
-                    ? Texture::white()
-                    : Texture(albedoPath);
-
-                Texture normalMap = normalPath.empty()
-                    ? Texture::flatNormal()
-                    : Texture(normalPath);
-
                 SubMesh sm{
                     Mesh(verts, indices),
-                    std::move(albedo),
-                    std::move(normalMap),
-                    ormPath
+                    albedoPath.empty() ? Texture::white()      : Texture(albedoPath),
+                    normalPath.empty() ? Texture::flatNormal() : Texture(normalPath),
                 };
                 submeshes.push_back(std::move(sm));
             }
