@@ -29,8 +29,8 @@ Run from the **project root** (shaders load relative to the working directory):
 | W / A / S / D | Fly forward / left / back / right |
 | E | Fly up |
 | Q | Fly down |
-| Space (hold) | Enable mouse look |
-| Mouse | Look around (while Space held) |
+| LMB (click) | Set orbit pivot at screen centre (depth-sampled) |
+| LMB (drag) | Tumble camera around pivot |
 | 1–9, 0 | Switch view mode |
 | H | Toggle HUD overlay |
 | B | Toggle sky background (beauty mode) |
@@ -69,7 +69,10 @@ All fields are optional; missing keys fall back to defaults.
     "focalLength": 50.0         // focal length in mm
   },
   "render": {
-    "scale": 2                  // FBO divisor: 2 → render at BASE/2 resolution
+    "scale":      2,            // FBO divisor: 2 → render at BASE/2 resolution
+    "width":      2048,         // render resolution width (pixels)
+    "height":     1152,         // render resolution height (pixels)
+    "iblSamples": 16            // IBL hemisphere sample count
   },
   "hdri": {
     "path":     "assets/hdr/…", // equirectangular .hdr / .jpg path
@@ -108,11 +111,11 @@ src/
 ├── config.hpp/.cpp — JSON profile loader (nlohmann/json)
 ├── window.hpp/.cpp — GLFW window + context (Retina-aware)
 ├── shader.hpp/.cpp — GLSL compile/link, uniform setters
-├── camera.hpp/.cpp — filmback/focal-length camera, Space-hold mouse look
+├── camera.hpp/.cpp — filmback/focal-length camera, LMB orbit (depth-sampled pivot)
 ├── mesh.hpp/.cpp   — VAO/VBO/EBO geometry, cube/plane/sphere factories
 ├── texture.hpp/.cpp— PNG/JPG/HDR loading via stb_image (RGBA8 + RGB16F)
 ├── hud.hpp/.cpp    — Dear ImGui overlay, FrameStats
-├── frustum.hpp     — Gribb-Hartmann frustum planes, sphere/AABB culling tests
+├── frustum.hpp     — Gribb-Hartmann frustum planes, sphere culling test
 ├── model.hpp/.cpp  — glTF 2.0 loader (cgltf), Model/SubMesh, node transform walk
 └── cgltf_impl.cpp  — cgltf single-header implementation unit
 shaders/
@@ -134,7 +137,8 @@ profile.json         — runtime scene config (camera, render scale, HDRI, geome
 | 4 | Optimisation — smooth FPS, non-stalling GPU timer, GPU-mem tracking, uniform batching, frustum culling | ✓ done |
 | 5 | Geometry Loading — glTF 2.0 (cgltf): meshes, materials, textures, scene hierarchy | ✓ done |
 | 6 | HDRI Skydome — equirectangular HDR sky, HDRI diffuse irradiance, linear pipeline | ✓ done |
-| 7 | Project Quality — SSAO, JSON config, render scale fix, Z-up correction, frame capture | in progress |
-| 8 | PBR Shader / Material System — Cook-Torrance BRDF, IBL, ORM maps | planned |
-| 9 | Camera & Lens Effects — exposure, bloom, DoF | planned |
+| 7 | Project Quality — SSAO, JSON config, render scale fix, Z-up correction, frame capture | ✓ done |
+| 8 | Orbit Camera — LMB pivot orbit, depth-sampled pivot, diffuse IBL fix, HDRI rotation | ✓ done |
+| 9 | PBR Shader / Material System — Cook-Torrance BRDF, IBL, ORM maps | planned |
+| 10 | Camera & Lens Effects — exposure, bloom, DoF | planned |
 | 10 | Advanced — OpenEXR I/O, Alembic geometry caches | planned |
