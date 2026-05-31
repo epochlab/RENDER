@@ -57,7 +57,6 @@ struct FrameStats {
 
     // View mode
     int         viewMode      = 1;
-    const char* viewModeName  = "Diffuse";
 };
 
 class HUD {

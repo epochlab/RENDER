@@ -100,7 +100,7 @@ static void walkNodes(const cgltf_node* const* nodes, cgltf_size count,
                         indices[ii] = static_cast<unsigned int>(cgltf_accessor_read_index(idxAcc, ii));
                 }
 
-                // ── Resolve texture paths and load albedo ─────────────
+                // ── Resolve texture paths and load textures ──────────
                 std::string albedoPath, normalPath, ormPath;
                 if (prim.material) {
                     const cgltf_material* mat = prim.material;
@@ -185,7 +185,6 @@ Model Model::loadGLTF(const std::string& path) {
 
     // Bounding sphere in model space (transform applied as model matrix at draw time).
     model.m_boundingRadius = model.m_submeshes[0].mesh.boundingRadius();
-    model.m_centre         = glm::vec3(0.0f);
 
     return model;
 }

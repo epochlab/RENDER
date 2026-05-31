@@ -30,11 +30,9 @@ Texture::Texture(const std::string& path, GLenum wrapMode) {
     if (!data)
         throw std::runtime_error("Texture load failed: " + path + " — " + stbi_failure_reason());
 
-    GLenum internalFmt = GL_RGBA8, fmt = GL_RGBA;
-
     glGenTextures(1, &m_id);
     glBindTexture(GL_TEXTURE_2D, m_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, internalFmt, w, h, 0, fmt, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     wrapMode);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     wrapMode);
@@ -76,7 +74,6 @@ Texture Texture::flatNormal() {
     glBindTexture(GL_TEXTURE_2D, 0);
     return Texture(id);
 }
-
 
 Texture Texture::white() {
     GLuint id;

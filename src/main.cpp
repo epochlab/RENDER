@@ -25,17 +25,6 @@ static void onMouseMove(GLFWwindow*, double xpos, double ypos) {
     if (g_camera) g_camera->processMouseMove(xpos, ypos);
 }
 
-static const char* viewModeName(int m) {
-    switch (m) {
-        case 1:  return "Beauty";        case 2:  return "Wireframe";
-        case 3:  return "Alpha";         case 4:  return "Depth";
-        case 5:  return "Position";      case 6:  return "Normals";
-        case 7:  return "UV";            case 8:  return "Albedo";
-        case 9:  return "Direct Diffuse";   case 10: return "AO";
-        case 11: return "Direct Reflection"; case 12: return "Shading Normal";
-        default: return "Unknown";
-    }
-}
 
 static float queryMemoryMB() {
     task_vm_info_data_t info;
@@ -475,13 +464,11 @@ int main() {
             stats.camPos          = camera.position();
             stats.camRotX         = camera.pitch();
             stats.camRotY         = camera.yaw();
-            stats.camRotZ         = 0.0f;
             stats.camFilmbackMm   = camera.filmback();
             stats.camFocalLengthMm = camera.focalLength();
             stats.camNear         = camera.nearPlane();
             stats.camFar          = camera.farPlane();
             stats.viewMode        = viewMode;
-            stats.viewModeName    = ::viewModeName(viewMode);
             stats.numObjects      = 1;
             stats.objects[0]      = {rock.name().c_str(), rock.triangleCount(), rock.vertexCount()};
 
