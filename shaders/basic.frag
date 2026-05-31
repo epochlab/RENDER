@@ -108,6 +108,20 @@ vec3 schlickFresnel(vec3 F0, float cosTheta) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+// Smith view-side masking (IBL remap k=a²/2, Karis 2013).
+// Goes to 0 at grazing — counteracts Fresnel rim on rough surfaces.
+float geoSmithIBL(float NdotV, float a) {
+    float k = a * a * 0.5;
+    return NdotV / max(NdotV * (1.0 - k) + k, 1e-6);
+}
+
+// Effective Fresnel with geometric attenuation — use instead of raw schlickFresnel for Ls.
+vec3 fresnelWeighted(vec3 F0, float NdotV, float roughness) {
+    float a   = clamp(roughness, 0.0, 1.0);
+    float G_V = geoSmithIBL(NdotV, a);
+    return G_V * schlickFresnel(F0, NdotV);
+}
+
 void main() {
     // SSAO G-buffer: shading normal (with normal map) in view space.
     gNormal = vec4(normalize(mat3(uView) * shadingNormal()) * 0.5 + 0.5, 1.0);
@@ -144,22 +158,18 @@ void main() {
         gColor = vec4(texture(uAlbedo, vUV).rgb, 1.0);
 
     } else if (uViewMode == 9) {
-        // _diffuse — Fresnel-weighted diffuse lobe, no albedo
-        vec3  n       = shadingNormal();
-        vec3  viewDir = normalize(uCamPos - vFragPos);
-        float f0Dia   = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
-        vec3  F0      = mix(vec3(f0Dia), vec3(1.0), uMetallic);
-        vec3  F       = schlickFresnel(F0, max(dot(n, viewDir), 0.0));
-        gColor = vec4((1.0 - F) * (1.0 - uMetallic) * irradianceIBL(n, uRoughness), 1.0);
+        // _diffuse — full irradiance, no albedo, no Fresnel mask
+        gColor = vec4(irradianceIBL(shadingNormal(), uRoughness), 1.0);
 
     } else if (uViewMode == 10) {
-        // _refl — Fresnel-weighted specular lobe
+        // _refl — geometry-attenuated Fresnel specular lobe
         vec3  n       = shadingNormal();
         vec3  viewDir = normalize(uCamPos - vFragPos);
+        float NoV     = max(dot(n, viewDir), 0.0);
         vec3  albedo  = texture(uAlbedo, vUV).rgb;
         float f0Dia   = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
         vec3  F0      = mix(vec3(f0Dia), albedo, uMetallic);
-        vec3  F       = schlickFresnel(F0, max(dot(n, viewDir), 0.0));
+        vec3  F       = fresnelWeighted(F0, NoV, uRoughness);
         gColor = vec4(F * reflectionIBL(n, viewDir, uRoughness), 1.0);
 
     } else if (uViewMode == 11) {
@@ -167,23 +177,24 @@ void main() {
         gColor = vec4(shadingNormal() * 0.5 + 0.5, 1.0);
 
     } else if (uViewMode == 13) {
-        // fresnel — Schlick F term at this fragment (drives diffuse/specular split)
+        // fresnel — geometry-attenuated F term (what actually weights Ls)
         vec3  n       = shadingNormal();
         vec3  viewDir = normalize(uCamPos - vFragPos);
+        float NoV     = max(dot(n, viewDir), 0.0);
         vec3  albedo  = texture(uAlbedo, vUV).rgb;
         float f0Dia   = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
         vec3  F0      = mix(vec3(f0Dia), albedo, uMetallic);
-        vec3  F       = schlickFresnel(F0, max(dot(n, viewDir), 0.0));
-        gColor = vec4(F, 1.0);
+        gColor = vec4(fresnelWeighted(F0, NoV, uRoughness), 1.0);
 
     } else {
         // Mode 1 (Beauty) and mode 12 (AO, display overridden by blit.frag)
         vec3  viewDir      = normalize(uCamPos - vFragPos);
         vec3  albedo       = texture(uAlbedo, vUV).rgb;
         vec3  n            = shadingNormal();
+        float NoV          = max(dot(n, viewDir), 0.0);
         float f0Dielectric = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
         vec3  F0           = mix(vec3(f0Dielectric), albedo, uMetallic);
-        vec3  F            = schlickFresnel(F0, max(dot(n, viewDir), 0.0));
+        vec3  F            = fresnelWeighted(F0, NoV, uRoughness);
         vec3  Ld = albedo * (1.0 - F) * (1.0 - uMetallic) * irradianceIBL(n, uRoughness);
         vec3  Ls = F * reflectionIBL(n, viewDir, uRoughness);
         gColor   = vec4(Ld + Ls, 1.0);
