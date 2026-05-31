@@ -21,7 +21,7 @@ Window::Window(int width, int height, const std::string& title)
     glfwMakeContextCurrent(m_window);
     glfwSetWindowUserPointer(m_window, this);
     glfwSetFramebufferSizeCallback(m_window, onResize);
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);  // vsync off — ProMotion throttles OpenGL to 30Hz with interval=1
 
     // Get actual framebuffer size (differs from logical size on Retina displays)
     glfwGetFramebufferSize(m_window, &m_width, &m_height);

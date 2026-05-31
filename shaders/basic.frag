@@ -149,8 +149,10 @@ void main() {
 
     } else {
         // Mode 1 (Beauty) and mode 12 (AO, display overridden by blit.frag)
-        vec3 albedo     = texture(uAlbedo, vUV).rgb;
-        vec3 irradiance = irradianceIBL(shadingNormal(), uRoughness);
-        gColor = vec4(albedo * irradiance, 1.0);
+        vec3 viewDir  = normalize(uCamPos - vFragPos);
+        vec3 albedo   = texture(uAlbedo, vUV).rgb;
+        vec3 diffuse  = albedo * irradianceIBL(shadingNormal(), uRoughness);
+        vec3 specular = reflectionIBL(shadingNormal(), viewDir, uRoughness);
+        gColor = vec4(mix(specular, diffuse, uRoughness), 1.0);
     }
 }
