@@ -167,7 +167,7 @@ profile.json          — runtime scene config (camera, render, HDRI, scene, sha
 | Build & Run — single-step build and run workflow (./build/KODAK no 'dev' or 'release') | ✓ |
 | Logging & Diagnostics — debug logging, warnings, errors, renderer statistics, screenshot metadata | ✓ |
 | Performance Profiling (GUI) — render time, rays/sec, samples/sec, memory usage | ✓ |
-| Hotkeys — RGBA channel overlay, luminance (Y), HUD toggle (H), Shift slow-movement | ✓ |
+| Hotkeys — RGBA channel overlay, luminance (Y), invert (I), HUD toggle (H), focal length slider | ✓ |
 | Directory Structure — designed for future expansion, procedural development, maintainability, and clean code organization | planned |
 | Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ sRGB and Rec709 viewing LUTs | planned |
 | Camera & Lens Effects — ISO, f-stop, shutter speed, DoF, focus distance, chromatic aberration, anamorphic lenses, aspect ratio, Kelvin-based lighting controls, film grain | planned |
