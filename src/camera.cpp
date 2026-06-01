@@ -59,7 +59,8 @@ void Camera::endOrbit() {
 }
 
 void Camera::processInput(GLFWwindow* window, float dt) {
-    float spd = moveSpeed * dt;
+    float spd = moveSpeed * dt *
+        (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ? 0.2f : 1.0f);
     glm::vec3 f = front();
     glm::vec3 r = glm::normalize(glm::cross(f, glm::vec3{0, 1, 0}));
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) m_pos += f * spd;

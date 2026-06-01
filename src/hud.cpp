@@ -160,11 +160,11 @@ void HUD::draw(FrameStats& s) {
     static const char* k_modeNames[] = {
         "beauty", "wireframe", "bounds", "alpha", "depth", "world_pos",
         "world_normals", "uv", "albedo", "direct_diffuse", "direct_refl",
-        "shading_normal", "ao", "fresnel"
+        "shading_normal", "ao", "fresnel", "luminance"
     };
     int modeIdx = s.viewMode - 1;
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 14))
+    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 15))
         s.viewMode = modeIdx + 1;
 
     // ── HDRI ──────────────────────────────────────────────────
@@ -172,6 +172,7 @@ void HUD::draw(FrameStats& s) {
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::SliderFloat("##hdriYaw", &s.hdriYawDeg, 1.0f, 360.0f, "Y-axis  %.0f deg");
     ImGui::Checkbox("Flip V", &s.hdriFlipV);
+    ImGui::Checkbox("Sky", &s.skyVisible);
 
     ImGui::End();
 }

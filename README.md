@@ -167,12 +167,13 @@ profile.json          — runtime scene config (camera, render, HDRI, scene, sha
 | Build & Run — single-step build and run workflow (./build/KODAK no 'dev' or 'release') | ✓ |
 | Logging & Diagnostics — debug logging, warnings, errors, renderer statistics, screenshot metadata | ✓ |
 | Performance Profiling (GUI) — render time, rays/sec, samples/sec, memory usage | ✓ |
-| Color Management — OpenEXR I/O linear pipeline, ACES workflow w/ sRGB and Rec709 view LUT | planned |
-| Camera & Lens Effects — ISO, f-stop, shutter speed, DoF, focus distance, chromatic aberration, anamorphic lenses, aspect ratio, Kelvin-based lighting controls  | planned |
+| Hotkeys — RGBA channel overlay, luminance (Y), HUD toggle (H), Shift slow-movement | ✓ |
+| Directory Structure — designed for future expansion, procedural development, maintainability, and clean code organization | planned |
+| Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ sRGB and Rec709 viewing LUTs | planned |
+| Camera & Lens Effects — ISO, f-stop, shutter speed, DoF, focus distance, chromatic aberration, anamorphic lenses, aspect ratio, Kelvin-based lighting controls, film grain | planned |
 | Shader update — RGB albedo color parameter (white default), indirect (self-reflection, refraction, SSS) | planned |
 | Ray Tracing — shadows, area lights, indirect illumination, brute-force path tracing | planned |
 | Sampling — adaptive sampling, multiple importance sampling (MIS) | planned |
-| Directory Structure — designed for future expansion, procedural development, maintainability, and clean code organization | planned |
 | Geometry & Shader Library — reusable assets, camera presets, and materials files and presets, scene import/export | planned |
 | Test Scenes — teapot, cornell box, three-sphere material test with curved backdrop | planned |
-| Future Features — 2d groundplane, alembic (cam and geo), turntable, macbeth ColorChecker, diffusion rendering, film grain, cross-platform support (NVIDIA and Apple Silicon) | planned |
+| Future Features — 2d groundplane, alembic (cam and geo), turntable, macbeth ColorChecker, diffusion rendering, cross-platform support (NVIDIA and Apple Silicon) | planned |

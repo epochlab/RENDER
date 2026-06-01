@@ -4,6 +4,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Hotkeys] — 2026-06-02
+
+- **Channel overlay hotkeys** — R/G/B toggle red, green, blue channel views as a post-composite overlay in `blit.frag` via a new `uChannelView` uniform; press the same key again to clear; works on top of any AOV
+- **Luminance hotkey (Y)** — toggles new AOV mode 15 (Rec. 709 luminance computed in `blit.frag`); press Y again to restore the previous AOV; also selectable from the AOV dropdown
+- **HUD toggle (H)** — edge-triggered `H` key hides/shows the stats panel
+- **Slow movement (Shift+WASDQE)** — holding Left Shift applies a 0.2× speed multiplier in `camera.cpp` for precision positioning
+- **Sky checkbox** — sky background toggle moved from native menu-only to an ImGui checkbox in the HDRI section of the HUD panel; native menu still works bidirectionally
+
+---
+
 ## [Logging & Diagnostics + Performance Profiling] — 2026-06-01
 
 - **Structured logger** — new `log.hpp` header-only logger with four levels (DEBUG, INFO, WARN, ERROR); output format `[HH:MM:SS] [LEVEL] message` to stderr; DEBUG suppressed in release builds

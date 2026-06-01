@@ -250,6 +250,9 @@ int main() {
         stats.skyVisible = cfg.hdri.visible;
         stats.showPanel  = true;
         int    viewMode    = 1;
+        int    channelView = 0;   // 0=off 1=R 2=G 3=B
+        int    preLumMode  = 1;   // viewMode saved before entering luminance (mode 15)
+        struct { bool r, g, b, y, h; } prevKeys{};
         bool   prevLMB    = false;
         float  smoothFps  = 0.0f;
         double lastTime   = glfwGetTime();
@@ -328,6 +331,22 @@ int main() {
 
             if (glfwGetKey(win.handle(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
                 glfwSetWindowShouldClose(win.handle(), GLFW_TRUE);
+
+            // ── Hotkeys (edge-triggered) ───────────────────────────────
+            {
+                auto edge = [&](int key, bool& prev) {
+                    bool now = glfwGetKey(win.handle(), key) == GLFW_PRESS;
+                    bool fired = now && !prev; prev = now; return fired;
+                };
+                if (edge(GLFW_KEY_R, prevKeys.r)) channelView = (channelView == 1) ? 0 : 1;
+                if (edge(GLFW_KEY_G, prevKeys.g)) channelView = (channelView == 2) ? 0 : 2;
+                if (edge(GLFW_KEY_B, prevKeys.b)) channelView = (channelView == 3) ? 0 : 3;
+                if (edge(GLFW_KEY_Y, prevKeys.y)) {
+                    if (viewMode == 15) { viewMode = preLumMode; }
+                    else { preLumMode = viewMode; viewMode = 15; }
+                }
+                if (edge(GLFW_KEY_H, prevKeys.h)) stats.showPanel = !stats.showPanel;
+            }
 
             // ── LMB: sample pivot at screen centre, then orbit ────────
             // Ignore LMB when ImGui is capturing it (e.g. dragging a slider).
@@ -495,7 +514,8 @@ int main() {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, win.width(), win.height());
             blitShader.use();
-            blitShader.set("uViewMode", viewMode);
+            blitShader.set("uViewMode",    viewMode);
+            blitShader.set("uChannelView", channelView);
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, rt.colorTex);
             glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, blurRt.tex);
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, rt.depthTex);
