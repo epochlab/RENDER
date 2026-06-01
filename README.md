@@ -6,32 +6,14 @@
 - CMake ≥ 3.20
 - C++17 compiler
 
-## Build
-
-Two presets are available:
-
-| Preset | Type | Output |
-|--------|------|--------|
-| `dev` | Debug | `build/dev/KODAK` |
-| `release` | Release (`-O3` + LTO) | `build/release/KODAK` |
-
-Configure and build:
-
-```bash
-# Development (fast iteration, debug symbols)
-cmake --preset dev && cmake --build --preset dev -j
-
-# Release (maximum performance)
-cmake --preset release && cmake --build --preset release -j
-```
-
-## Run
+## Build & Run
 
 Run from the **project root** (shaders and assets load relative to the working directory):
 
 ```bash
-./build/dev/KODAK      # debug build
-./build/release/KODAK  # release build
+make        # build → ./build/KODAK
+make run    # build and run
+make clean  # wipe build/
 ```
 
 ## Controls
@@ -182,20 +164,15 @@ profile.json          — runtime scene config (camera, render, HDRI, scene, sha
 | GUI & Debug — native macOS menu, crosshair, HDRI controls, AOV remap | ✓ |
 | Render Performance — uniform cache, CPU normal matrix, half-res SSAO, release preset | ✓ |
 | Quick fixes — world_pos AABB normalisation, bounds AOV, Sky Background menu toggle | ✓ |
-
+| Build & Run — single-step build and run workflow (./build/KODAK no 'dev' or 'release') | ✓ |
 | Logging & Diagnostics — debug logging, warnings, errors, renderer statistics, screenshot metadata | planned |
 | Performance Profiling (GUI) — render time, rays/sec, samples/sec, memory usage | planned |
-| Build & Run — single-step build and run workflow (./build/KODAK no 'dev' or 'release') | planned |
-
 | Color Management — OpenEXR I/O linear pipeline, ACES workflow w/ sRGB and Rec709 view LUT | planned |
 | Camera & Lens Effects — ISO, f-stop, shutter speed, DoF, focus distance, chromatic aberration, anamorphic lenses, aspect ratio, Kelvin-based lighting controls  | planned |
-
 | Shader update — RGB albedo color parameter (white default), indirect (self-reflection, refraction, SSS) | planned |
 | Ray Tracing — shadows, area lights, indirect illumination, brute-force path tracing | planned |
 | Sampling — adaptive sampling, multiple importance sampling (MIS) | planned |
-
 | Directory Structure — designed for future expansion, procedural development, maintainability, and clean code organization | planned |
 | Geometry & Shader Library — reusable assets, camera presets, and materials files and presets, scene import/export | planned |
 | Test Scenes — teapot, cornell box, three-sphere material test with curved backdrop | planned |
-
 | Future Features — 2d groundplane, alembic (cam and geo), turntable, macbeth ColorChecker, diffusion rendering, film grain, cross-platform support (NVIDIA and Apple Silicon) | planned |

@@ -4,6 +4,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Build & Run] — 2026-06-01
+
+- **Single build preset** — `CMakePresets.json` consolidated to one `default` preset (Release + LTO); binary at `build/KODAK` with no `dev/` or `release/` subdirectory
+- **Makefile** — top-level `make` (configure + build), `make run` (build + launch), `make clean` (wipe `build/`)
+
+---
+
 ## [Quick Fixes] — 2026-05-31
 
 - **Sky Background menu fix** — View → Sky Background now correctly toggles the sky; menu-driven changes are detected before the per-frame sync overwrites them (`main.cpp`)

@@ -8,15 +8,15 @@
 Exact commands, in order. Do not guess build invocations.
 
 ```bash
-cmake --preset dev && cmake --build --preset dev -j   # C++ build  [EDIT presets]
-ctest --preset dev --output-on-failure                # C++ tests
+make   # C++ build → ./build/KODAK
+ctest --preset default --output-on-failure            # C++ tests
 pip install -e . --no-build-isolation                 # rebuild binding if C++ changed
 pytest -x -q                                          # Python tests
 ```
 
-Single test: `ctest --preset dev -R '<regex>'` or `pytest path::test_name`.
+Single test: `ctest --preset default -R '<regex>'` or `pytest path::test_name`.
 
-Before claiming done: `ruff check . && mypy <package> && clang-tidy -p build/dev <changed .cpp>`.
+Before claiming done: `ruff check . && mypy <package> && clang-tidy -p build <changed .cpp>`.
 If you touched the C++ core, the Python tests still need to pass.
 
 # Architecture

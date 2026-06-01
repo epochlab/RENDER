@@ -2,18 +2,9 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "dev",
-            "displayName": "Dev",
-            "binaryDir": "${sourceDir}/build/dev",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-            }
-        },
-        {
-            "name": "release",
-            "displayName": "Release",
-            "binaryDir": "${sourceDir}/build/release",
+            "name": "default",
+            "displayName": "Default",
+            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -23,28 +14,8 @@
     ],
     "buildPresets": [
         {
-            "name": "dev",
-            "configurePreset": "dev"
-        },
-        {
-            "name": "release",
-            "configurePreset": "release"
-        }
-    ],
-    "testPresets": [
-        {
-            "name": "dev",
-            "configurePreset": "dev",
-            "output": {
-                "outputOnFailure": true
-            }
-        },
-        {
-            "name": "release",
-            "configurePreset": "release",
-            "output": {
-                "outputOnFailure": true
-            }
+            "name": "default",
+            "configurePreset": "default"
         }
     ]
 }
