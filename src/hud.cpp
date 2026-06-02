@@ -256,13 +256,11 @@ void HUD::draw(FrameStats& s) {
 
         auto drawSmooth = [&](const float* vals, ImU32 fill, ImU32 line) {
             ImVec2 edge[256];
-            for (int b = 0; b < 256; ++b)
+            for (int b = 0; b < 256; ++b) {
                 edge[b] = {pos.x + (b + 0.5f) * bw, pos.y + H * (1.0f - vals[b])};
-            ImVec2 pts[258];
-            pts[0] = {pos.x, pos.y + H};
-            for (int b = 0; b < 256; ++b) pts[b + 1] = edge[b];
-            pts[257] = {pos.x + W, pos.y + H};
-            dl->AddConvexPolyFilled(pts, 258, fill);
+                dl->AddRectFilled({pos.x + b * bw, edge[b].y},
+                                  {pos.x + (b + 1) * bw, pos.y + H}, fill);
+            }
             dl->AddPolyline(edge, 256, line, 0, 1.0f);
         };
 
