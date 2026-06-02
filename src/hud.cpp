@@ -194,11 +194,13 @@ void HUD::draw(FrameStats& s) {
         // Grayscale: full 256-bin peak, no smoothing — preserves spikes at 0/255 (alpha, depth).
         // Colour: interior-only peak + 9-bin smooth — avoids clipping bins dominating scale.
         float smooth[3][256];
-        // Helper: smooth a single channel into smooth[c] using interior peak + 9-bin filter.
+        // Helper: smooth a single channel into smooth[c] — 3-bin window.
+        // 3-bin at ~0.9 px/bin is indistinguishable from 9-bin for smooth distributions
+        // but keeps sparse spikes (wireframe) at 1/3 height instead of 1/9.
         auto smoothChannel = [&](int c, uint32_t peak) {
             for (int b = 0; b < 256; ++b) {
                 float sum = 0.0f; int cnt = 0;
-                for (int k = b - 4; k <= b + 4; ++k) {
+                for (int k = b - 1; k <= b + 1; ++k) {
                     if (k < 0 || k > 255) continue;
                     sum += sqrtf(float(std::min(s.hist[c][k], peak)) / float(peak));
                     ++cnt;
@@ -250,11 +252,15 @@ void HUD::draw(FrameStats& s) {
             drawSmooth(smooth[1], IM_COL32( 40, 180,  60, 120), IM_COL32( 80, 220, 100, 220));  // G
             drawSmooth(smooth[0], IM_COL32(200,  40,  40, 120), IM_COL32(255, 100,  80, 220));  // R
 
-            // Overlap — where all three channels align.
+            // Overlap — where all three channels align (skip if trivially zero).
             float overlap[256];
-            for (int b = 0; b < 256; ++b)
+            float overlapMax = 0.0f;
+            for (int b = 0; b < 256; ++b) {
                 overlap[b] = std::min({smooth[0][b], smooth[1][b], smooth[2][b]});
-            drawSmooth(overlap, IM_COL32(180, 180, 180, 160), IM_COL32(255, 255, 255, 220));
+                if (overlap[b] > overlapMax) overlapMax = overlap[b];
+            }
+            if (overlapMax > 0.02f)
+                drawSmooth(overlap, IM_COL32(180, 180, 180, 160), IM_COL32(255, 255, 255, 220));
         }
 
         dl->AddRect(pos, {pos.x + W, pos.y + H}, IM_COL32(60, 60, 60, 180));
