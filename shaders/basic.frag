@@ -9,9 +9,10 @@ in vec2 vUV;
 uniform sampler2D uAlbedo;
 uniform sampler2D uSkyHDR;     // equirectangular HDRI for diffuse irradiance
 uniform sampler2D uNormalMap;  // tangent-space normal map (unit 2)
-uniform int       uViewMode;   // 1=beauty  2=wire    3=bounds  4=alpha   5=depth   6=world_pos
-                               // 7=world_normals 8=uv  9=albedo  10=_diffuse 11=_refl
-                               // 12=shading_normal  13=ao  14=fresnel
+uniform int       uViewMode;   // 1=beauty  2=alpha  3=luminance  4=hsv  5=bounds  6=wireframe
+                               // 7=depth  8=world_pos  9=world_normals  10=uv  11=albedo
+                               // 12=direct_diffuse  13=direct_refl  14=shading_normal
+                               // 15=ao  16=fresnel
 uniform vec3      uBoundsMin;  // world-space AABB min corner
 uniform vec3      uBoundsMax;  // world-space AABB max corner
 uniform float     uNear;
@@ -119,46 +120,46 @@ void main() {
     gNormal = vec4(normalize(mat3(uView) * shadingNormal()) * 0.5 + 0.5, 1.0);
 
     if (uViewMode == 2) {
-        // Wireframe
-        gColor = vec4(0.35, 0.85, 1.0, 1.0);
-
-    } else if (uViewMode == 3) {
-        // Bounds — flat grey fill; bounding box drawn as a separate GL_LINES pass in main.cpp
-        gColor = vec4(0.25, 0.25, 0.25, 1.0);
-
-    } else if (uViewMode == 4) {
         // Alpha channel
         gColor = vec4(vec3(texture(uAlbedo, vUV).a), 1.0);
 
     } else if (uViewMode == 5) {
+        // Bounds — flat grey fill; bounding box drawn as a separate GL_LINES pass in main.cpp
+        gColor = vec4(0.25, 0.25, 0.25, 1.0);
+
+    } else if (uViewMode == 6) {
+        // Wireframe — white so the histogram treats it as grayscale
+        gColor = vec4(1.0, 1.0, 1.0, 1.0);
+
+    } else if (uViewMode == 7) {
         // Linearised depth [0,1]
         float z  = gl_FragCoord.z * 2.0 - 1.0;
         float ld = (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
         float d  = (ld - uNear) / (uFar - uNear);
         gColor = vec4(d, d, d, 1.0);
 
-    } else if (uViewMode == 6) {
+    } else if (uViewMode == 8) {
         // world_pos — normalized against scene AABB for a continuous colour gradient
         vec3 extent = uBoundsMax - uBoundsMin;
         gColor = vec4(clamp((vFragPos - uBoundsMin) / max(extent, vec3(1e-6)), 0.0, 1.0), 1.0);
 
-    } else if (uViewMode == 7) {
+    } else if (uViewMode == 9) {
         // world_normals — world-space vertex normals (unperturbed)
         gColor = vec4(normalize(vNormal) * 0.5 + 0.5, 1.0);
 
-    } else if (uViewMode == 8) {
+    } else if (uViewMode == 10) {
         // UV coordinates
         gColor = vec4(fract(vUV), 0.0, 1.0);
 
-    } else if (uViewMode == 9) {
+    } else if (uViewMode == 11) {
         // Albedo — raw texture, no lighting
         gColor = vec4(texture(uAlbedo, vUV).rgb, 1.0);
 
-    } else if (uViewMode == 10) {
+    } else if (uViewMode == 12) {
         // _diffuse — full irradiance, no albedo, no Fresnel mask
         gColor = vec4(irradianceIBL(shadingNormal(), uRoughness), 1.0);
 
-    } else if (uViewMode == 11) {
+    } else if (uViewMode == 13) {
         // _refl — geometry-attenuated Fresnel specular lobe
         vec3  n       = shadingNormal();
         vec3  viewDir = normalize(uCamPos - vFragPos);
@@ -169,11 +170,11 @@ void main() {
         vec3  F       = fresnelWeighted(F0, NoV, uRoughness);
         gColor = vec4(F * reflectionIBL(n, viewDir, uRoughness), 1.0);
 
-    } else if (uViewMode == 12) {
+    } else if (uViewMode == 14) {
         // Shading Normal — TBN-perturbed normal visualised as colour
         gColor = vec4(shadingNormal() * 0.5 + 0.5, 1.0);
 
-    } else if (uViewMode == 14) {
+    } else if (uViewMode == 16) {
         // fresnel — geometry-attenuated F term mapped red (0) → green (1)
         vec3  n       = shadingNormal();
         vec3  viewDir = normalize(uCamPos - vFragPos);
@@ -186,7 +187,7 @@ void main() {
         gColor = vec4(mix(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), fVal), 1.0);
 
     } else {
-        // Mode 1 (Beauty) and mode 13 (AO, display overridden by blit.frag)
+        // Mode 1 (Beauty), 3 (luminance), 4 (hsv), 15 (AO) — display overridden by blit.frag
         vec3  viewDir      = normalize(uCamPos - vFragPos);
         vec3  albedo       = texture(uAlbedo, vUV).rgb;
         vec3  n            = shadingNormal();

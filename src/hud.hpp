@@ -60,6 +60,10 @@ struct FrameStats {
     // View mode
     int         viewMode      = 1;
 
+    // Histogram (R=0, G=1, B=2; 256 bins each)
+    uint32_t    hist[3][256]{};
+    int         histValid     = 0;
+
     // HDRI controls
     float       hdriYawDeg    = 0.0f;
     bool        hdriFlipV     = false;

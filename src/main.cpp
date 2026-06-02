@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <cfloat>
+#include <cstring>
 #include <ctime>
 #include "window.hpp"
 #include "shader.hpp"
@@ -230,6 +231,19 @@ int main() {
         rt.create(BASE_W, BASE_H);
         ssaoRt.create(AO_W, AO_H);
         blurRt.create(AO_W, AO_H);
+
+        // ── Histogram readback target (256×144 RGB8, fixed size) ──────
+        GLuint histFBO = 0, histTex = 0;
+        glGenFramebuffers(1, &histFBO);
+        glGenTextures(1, &histTex);
+        glBindTexture(GL_TEXTURE_2D, histTex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 256, 144, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, histFBO);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, histTex, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         // Blur output is upsampled by the blit pass — use linear filter for smooth result.
         glBindTexture(GL_TEXTURE_2D, blurRt.tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -343,8 +357,8 @@ int main() {
                 if (edge(GLFW_KEY_G, prevKeys.g)) channelView = (channelView == 2) ? 0 : 2;
                 if (edge(GLFW_KEY_B, prevKeys.b)) channelView = (channelView == 3) ? 0 : 3;
                 if (edge(GLFW_KEY_Y, prevKeys.y)) {
-                    if (viewMode == 15) { viewMode = preLumMode; }
-                    else { preLumMode = viewMode; viewMode = 15; }
+                    if (viewMode == 3) { viewMode = preLumMode; }
+                    else { preLumMode = viewMode; viewMode = 3; }
                 }
                 if (edge(GLFW_KEY_H, prevKeys.h)) stats.showPanel = !stats.showPanel;
                 if (edge(GLFW_KEY_I, prevKeys.i)) invertColors = !invertColors;
@@ -420,7 +434,11 @@ int main() {
             glEnable(GL_DEPTH_TEST);
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glPolygonMode(GL_FRONT_AND_BACK, viewMode == 2 ? GL_LINE : GL_FILL);
+            glPolygonMode(GL_FRONT_AND_BACK, viewMode == 6 ? GL_LINE : GL_FILL);
+            if (viewMode == 6) {
+                glEnable(GL_POLYGON_OFFSET_LINE);
+                glPolygonOffset(-1.0f, -1.0f);
+            }
 
             shader.use();
             shader.set("uView",            view);
@@ -472,7 +490,7 @@ int main() {
             }
 
             // Bounds AOV: draw AABB wireframe box after geometry.
-            if (viewMode == 3) {
+            if (viewMode == 5) {
                 glDepthMask(GL_FALSE);
                 lineShader.use();
                 lineShader.set("uVP", proj * view);
@@ -488,6 +506,7 @@ int main() {
             queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES;
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glDisable(GL_POLYGON_OFFSET_LINE);
 
             // ── SSAO pass ─────────────────────────────────────────
             glBeginQuery(GL_TIME_ELAPSED, gpuPostQueries[queryWrite]);
@@ -529,6 +548,31 @@ int main() {
             postQueryStarted[queryWrite] = true;
 
             glEnable(GL_DEPTH_TEST);
+
+            // ── Histogram (throttled readback every 4 frames) ─────
+            {
+                static int  histTick = 0;
+                static uint8_t histPx[256 * 144 * 3];
+                if (++histTick >= 4) {
+                    histTick = 0;
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, histFBO);
+                    glBlitFramebuffer(0, 0, win.width(), win.height(),
+                                      0, 0, 256, 144,
+                                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, histFBO);
+                    glReadPixels(0, 0, 256, 144, GL_RGB, GL_UNSIGNED_BYTE, histPx);
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+                    uint32_t h[3][256]{};
+                    const uint8_t* p = histPx;
+                    for (int i = 0; i < 256 * 144; ++i, p += 3) {
+                        ++h[0][p[0]]; ++h[1][p[1]]; ++h[2][p[2]];
+                    }
+                    memcpy(stats.hist, h, sizeof(h));
+                    stats.histValid = 1;
+                }
+            }
 
             // ── Stats ─────────────────────────────────────────────
             float rawFps = (dt > 0.0f) ? 1.0f / dt : 0.0f;
@@ -626,6 +670,8 @@ int main() {
         rt.destroy();
         ssaoRt.destroy();
         blurRt.destroy();
+        glDeleteFramebuffers(1, &histFBO);
+        glDeleteTextures(1, &histTex);
         glDeleteTextures(1, &noiseTex);
         glDeleteVertexArrays(1, &blitVAO);
         glDeleteVertexArrays(1, &boxVAO);

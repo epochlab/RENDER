@@ -1,4 +1,5 @@
 #include "hud.hpp"
+#include <algorithm>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -107,8 +108,18 @@ void HUD::draw(FrameStats& s) {
     // ── Frame ─────────────────────────────────────────────────
     sectionHeader("Frame");
     ImGui::Text("%.0f FPS  avg %.0f  %.2f ms", s.fps, s.fpsSmooth, s.frameTimeMs);
-    ImGui::PlotLines("##fps", s.fpsHistory, 128, s.fpsHistoryOffset,
-                     nullptr, 0.0f, 300.0f, {214.0f, 36.0f});
+    {
+        constexpr float kFpsMax = 300.0f;
+        constexpr ImVec2 kGraphSz{214.0f, 36.0f};
+        ImVec2 gp = ImGui::GetCursorScreenPos();
+        ImGui::PlotLines("##fps", s.fpsHistory, 128, s.fpsHistoryOffset,
+                         nullptr, 0.0f, kFpsMax, kGraphSz);
+        if (s.fpsSmooth > 0.0f) {
+            float y = gp.y + kGraphSz.y * (1.0f - std::min(s.fpsSmooth, kFpsMax) / kFpsMax);
+            ImGui::GetWindowDrawList()->AddLine(
+                {gp.x, y}, {gp.x + kGraphSz.x, y}, IM_COL32(220, 60, 60, 200), 1.0f);
+        }
+    }
     ImGui::Text("min %.2f   max %.2f ms", s.frameTimeMin, s.frameTimeMax);
     ImGui::Text("GPU  geom %.2f  post %.2f ms", s.gpuGeomMs, s.gpuPostMs);
     ImGui::Text("     %.1f Mtri/s  %.1f Mpix/s", s.triPerSec, s.mpixPerSec);
@@ -163,14 +174,130 @@ void HUD::draw(FrameStats& s) {
     // ── AOV ───────────────────────────────────────────────────
     sectionHeader("AOV");
     static const char* k_modeNames[] = {
-        "beauty", "wireframe", "bounds", "alpha", "depth", "world_pos",
-        "world_normals", "uv", "albedo", "direct_diffuse", "direct_refl",
-        "shading_normal", "ao", "fresnel", "luminance"
+        "beauty", "alpha", "luminance", "hsv",
+        "bounds", "wireframe",
+        "depth", "world_pos", "world_normals", "uv", "albedo",
+        "direct_diffuse", "direct_refl", "shading_normal", "ao", "fresnel"
     };
     int modeIdx = s.viewMode - 1;
     ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 15))
+    if (ImGui::Combo("##channel", &modeIdx, k_modeNames, 16))
         s.viewMode = modeIdx + 1;
+
+    // ── Histogram ─────────────────────────────────────────────
+    if (s.histValid) {
+        sectionHeader("Histogram");
+
+        bool isGray = true;
+        for (int b = 0; b < 256 && isGray; ++b)
+            isGray = (s.hist[0][b] == s.hist[1][b] && s.hist[1][b] == s.hist[2][b]);
+
+        const float  W   = ImGui::GetContentRegionAvail().x;
+        const float  H   = 72.0f;
+        ImVec2       pos = ImGui::GetCursorScreenPos();
+        ImDrawList*  dl  = ImGui::GetWindowDrawList();
+        const float  bw  = W / 256.0f;
+
+        dl->AddRectFilled(pos, {pos.x + W, pos.y + H}, IM_COL32(18, 18, 18, 255));
+
+        // Pre-compute normalised heights.
+        // Grayscale: full 256-bin peak, no smoothing — preserves spikes at 0/255 (alpha, depth).
+        // Colour: interior-only peak + 9-bin smooth — avoids clipping bins dominating scale.
+        // Grayscale non-binary uses ±2 (5-bin) to halve the spread vs colour.
+        float smooth[3][256];
+        auto smoothChannel = [&](int c, uint32_t peak, int radius = 4) {
+            for (int b = 0; b < 256; ++b) {
+                float sum = 0.0f; int cnt = 0;
+                for (int k = b - radius; k <= b + radius; ++k) {
+                    if (k < 1 || k > 254) continue;
+                    sum += sqrtf(float(std::min(s.hist[c][k], peak)) / float(peak));
+                    ++cnt;
+                }
+                smooth[c][b] = sum / cnt;
+            }
+        };
+
+        // Detect channels that always output 0.0 (all pixel counts in bin 0).
+        // Happens for 2-channel AOVs like UV and Fresnel where B is constant zero.
+        bool channelEmpty[3] = {false, false, false};
+        if (!isGray) {
+            for (int c = 0; c < 3; ++c) {
+                bool empty = true;
+                for (int b = 1; b < 256; ++b)
+                    if (s.hist[c][b] > 0) { empty = false; break; }
+                channelEmpty[c] = empty;
+            }
+        }
+
+        if (isGray) {
+            // Near-binary (e.g. alpha mask): <1% of pixels in interior bins.
+            // Use full-range peak + no smoothing so the end-spikes are visible.
+            uint32_t interiorTotal = 0;
+            for (int b = 1; b < 255; ++b) interiorTotal += s.hist[0][b];
+            const bool nearBinary = interiorTotal < static_cast<uint32_t>(256 * 144 / 100);
+            if (nearBinary) {
+                uint32_t pk = 1;
+                for (int b = 0; b < 256; ++b) pk = std::max(pk, s.hist[0][b]);
+                for (int b = 0; b < 256; ++b)
+                    smooth[0][b] = sqrtf(float(s.hist[0][b]) / float(pk));
+            } else {
+                uint32_t pk = 1;
+                for (int b = 1; b < 255; ++b) pk = std::max(pk, s.hist[0][b]);
+                smoothChannel(0, pk);
+            }
+        } else {
+            uint32_t peak = 1;
+            for (int c = 0; c < 3; ++c)
+                if (!channelEmpty[c])
+                    for (int b = 1; b < 255; ++b)
+                        peak = std::max(peak, s.hist[c][b]);
+            for (int c = 0; c < 3; ++c) smoothChannel(c, peak);
+        }
+
+        auto drawSmooth = [&](const float* vals, ImU32 fill, ImU32 line) {
+            ImVec2 edge[256];
+            for (int b = 0; b < 256; ++b)
+                edge[b] = {pos.x + (b + 0.5f) * bw, pos.y + H * (1.0f - vals[b])};
+            ImVec2 pts[258];
+            pts[0] = {pos.x, pos.y + H};
+            for (int b = 0; b < 256; ++b) pts[b + 1] = edge[b];
+            pts[257] = {pos.x + W, pos.y + H};
+            // Disable fill AA: prevents per-sub-triangle fringes from AddConcavePolyFilled
+            // creating visible diagonal lines on internal triangulation edges.
+            // The outline (AddPolyline below) retains its own AA for the smooth top curve.
+            const ImDrawListFlags savedFlags = dl->Flags;
+            dl->Flags &= ~ImDrawListFlags_AntiAliasedFill;
+            dl->AddConcavePolyFilled(pts, 258, fill);
+            dl->Flags = savedFlags;
+            dl->AddPolyline(edge, 256, line, 0, 1.0f);
+        };
+
+        if (isGray) {
+            drawSmooth(smooth[0], IM_COL32(180, 180, 180, 130), IM_COL32(220, 220, 220, 220));
+        } else {
+            if (!channelEmpty[2]) drawSmooth(smooth[2], IM_COL32( 40,  80, 200, 120), IM_COL32( 80, 140, 255, 220));  // B
+            if (!channelEmpty[1]) drawSmooth(smooth[1], IM_COL32( 40, 180,  60, 120), IM_COL32( 80, 220, 100, 220));  // G
+            if (!channelEmpty[0]) drawSmooth(smooth[0], IM_COL32(200,  40,  40, 120), IM_COL32(255, 100,  80, 220));  // R
+
+            // Overlap over active channels only (2-ch UV/Fresnel: min(R,G); full RGB: min(R,G,B)).
+            int activeCh = (!channelEmpty[0] ? 1 : 0) + (!channelEmpty[1] ? 1 : 0) + (!channelEmpty[2] ? 1 : 0);
+            if (activeCh >= 2) {
+                float overlap[256]; float overlapMax = 0.0f;
+                for (int b = 0; b < 256; ++b) {
+                    float ov = 1.0f;
+                    for (int c = 0; c < 3; ++c)
+                        if (!channelEmpty[c]) ov = std::min(ov, smooth[c][b]);
+                    overlap[b] = ov;
+                    overlapMax = std::max(overlapMax, ov);
+                }
+                if (overlapMax > 0.02f)
+                    drawSmooth(overlap, IM_COL32(180, 180, 180, 160), IM_COL32(255, 255, 255, 220));
+            }
+        }
+
+        dl->AddRect(pos, {pos.x + W, pos.y + H}, IM_COL32(60, 60, 60, 180));
+        ImGui::Dummy({W, H});
+    }
 
     // ── HDRI ──────────────────────────────────────────────────
     sectionHeader("HDRI");
