@@ -176,35 +176,43 @@ void HUD::draw(FrameStats& s) {
     // ── Histogram ─────────────────────────────────────────────
     if (s.histValid) {
         sectionHeader("Histogram");
+
         uint32_t peak = 1;
         for (int c = 0; c < 3; ++c)
-            for (int b = 1; b < 255; ++b)
+            for (int b = 0; b < 256; ++b)
                 if (s.hist[c][b] > peak) peak = s.hist[c][b];
+
+        bool isGray = true;
+        for (int b = 0; b < 256 && isGray; ++b)
+            isGray = (s.hist[0][b] == s.hist[1][b] && s.hist[1][b] == s.hist[2][b]);
 
         const float  W   = ImGui::GetContentRegionAvail().x;
         const float  H   = 72.0f;
         ImVec2       pos = ImGui::GetCursorScreenPos();
         ImDrawList*  dl  = ImGui::GetWindowDrawList();
+        const float  bw  = W / 256.0f;
 
         dl->AddRectFilled(pos, {pos.x + W, pos.y + H}, IM_COL32(18, 18, 18, 255));
 
-        const ImU32 chCol[3] = {
-            IM_COL32(220,  60,  60, 180),   // R
-            IM_COL32( 60, 200,  80, 180),   // G
-            IM_COL32( 60, 100, 220, 180),   // B
-        };
-        const int order[3] = {2, 1, 0};   // B first, G, R on top
-        const float bw = W / 256.0f;
-        for (int oi = 0; oi < 3; ++oi) {
-            int c = order[oi];
+        auto drawCurve = [&](int c, ImU32 col) {
+            dl->PathClear();
+            dl->PathLineTo({pos.x, pos.y + H});
             for (int b = 0; b < 256; ++b) {
                 float norm = sqrtf((float)s.hist[c][b] / (float)peak);
-                float bh   = norm * H;
-                float x0   = pos.x + b * bw;
-                float x1   = x0 + bw + 0.5f;
-                dl->AddRectFilled({x0, pos.y + H - bh}, {x1, pos.y + H}, chCol[c]);
+                dl->PathLineTo({pos.x + (b + 0.5f) * bw, pos.y + H - norm * H});
             }
+            dl->PathLineTo({pos.x + W, pos.y + H});
+            dl->PathFillConvex(col);
+        };
+
+        if (isGray) {
+            drawCurve(0, IM_COL32(204, 204, 204, 204));
+        } else {
+            drawCurve(2, IM_COL32( 60, 100, 220, 180));   // B
+            drawCurve(1, IM_COL32( 60, 200,  80, 180));   // G
+            drawCurve(0, IM_COL32(220,  60,  60, 180));   // R on top
         }
+
         dl->AddRect(pos, {pos.x + W, pos.y + H}, IM_COL32(60, 60, 60, 180));
         ImGui::Dummy({W, H});
     }
