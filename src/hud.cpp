@@ -197,14 +197,7 @@ void HUD::draw(FrameStats& s) {
         dl->AddRectFilled(pos, {pos.x + W, pos.y + H}, IM_COL32(18, 18, 18, 255));
 
         auto drawChannel = [&](int c, ImU32 fill, ImU32 line) {
-            // Filled mass — thin bars at sub-pixel width render as a solid area.
-            for (int b = 0; b < 256; ++b) {
-                uint32_t v = std::min(s.hist[c][b], peak);
-                float norm = sqrtf(float(v) / float(peak));
-                float x0 = pos.x + b * bw;
-                dl->AddRectFilled({x0, pos.y + H - norm * H}, {x0 + bw + 0.5f, pos.y + H}, fill);
-            }
-            // Smooth outline — 9-bin box filter removes per-bin noise.
+            // Smooth curve — 9-bin box filter.
             ImVec2 edge[256];
             for (int b = 0; b < 256; ++b) {
                 float sum = 0.0f; int cnt = 0;
@@ -215,6 +208,12 @@ void HUD::draw(FrameStats& s) {
                 }
                 edge[b] = {pos.x + (b + 0.5f) * bw, pos.y + H * (1.0f - sum / cnt)};
             }
+            // Filled area below the curve.
+            ImVec2 pts[258];
+            pts[0] = {pos.x, pos.y + H};
+            for (int b = 0; b < 256; ++b) pts[b + 1] = edge[b];
+            pts[257] = {pos.x + W, pos.y + H};
+            dl->AddConcavePolyFilled(pts, 258, fill);
             dl->AddPolyline(edge, 256, line, 0, 1.0f);
         };
 
