@@ -196,9 +196,9 @@ void HUD::draw(FrameStats& s) {
 
         dl->AddRectFilled(pos, {pos.x + W, pos.y + H}, IM_COL32(18, 18, 18, 255));
 
-        auto drawChannel = [&](int c, ImU32 fill, ImU32 line) {
-            // Smooth curve — 9-bin box filter.
-            ImVec2 edge[256];
+        // Pre-compute smoothed normalised heights for all 3 channels.
+        float smooth[3][256];
+        for (int c = 0; c < 3; ++c) {
             for (int b = 0; b < 256; ++b) {
                 float sum = 0.0f; int cnt = 0;
                 for (int k = b - 4; k <= b + 4; ++k) {
@@ -206,9 +206,14 @@ void HUD::draw(FrameStats& s) {
                     sum += sqrtf(float(std::min(s.hist[c][k], peak)) / float(peak));
                     ++cnt;
                 }
-                edge[b] = {pos.x + (b + 0.5f) * bw, pos.y + H * (1.0f - sum / cnt)};
+                smooth[c][b] = sum / cnt;
             }
-            // Filled area below the curve.
+        }
+
+        auto drawSmooth = [&](const float* vals, ImU32 fill, ImU32 line) {
+            ImVec2 edge[256];
+            for (int b = 0; b < 256; ++b)
+                edge[b] = {pos.x + (b + 0.5f) * bw, pos.y + H * (1.0f - vals[b])};
             ImVec2 pts[258];
             pts[0] = {pos.x, pos.y + H};
             for (int b = 0; b < 256; ++b) pts[b + 1] = edge[b];
@@ -218,11 +223,17 @@ void HUD::draw(FrameStats& s) {
         };
 
         if (isGray) {
-            drawChannel(0, IM_COL32(180, 180, 180, 130), IM_COL32(220, 220, 220, 220));
+            drawSmooth(smooth[0], IM_COL32(180, 180, 180, 130), IM_COL32(220, 220, 220, 220));
         } else {
-            drawChannel(2, IM_COL32( 40,  80, 200, 120), IM_COL32( 80, 140, 255, 220));  // B
-            drawChannel(1, IM_COL32( 40, 180,  60, 120), IM_COL32( 80, 220, 100, 220));  // G
-            drawChannel(0, IM_COL32(200,  40,  40, 120), IM_COL32(255, 100,  80, 220));  // R
+            drawSmooth(smooth[2], IM_COL32( 40,  80, 200, 120), IM_COL32( 80, 140, 255, 220));  // B
+            drawSmooth(smooth[1], IM_COL32( 40, 180,  60, 120), IM_COL32( 80, 220, 100, 220));  // G
+            drawSmooth(smooth[0], IM_COL32(200,  40,  40, 120), IM_COL32(255, 100,  80, 220));  // R
+
+            // Overlap — where all three channels align.
+            float overlap[256];
+            for (int b = 0; b < 256; ++b)
+                overlap[b] = std::min({smooth[0][b], smooth[1][b], smooth[2][b]});
+            drawSmooth(overlap, IM_COL32(180, 180, 180, 160), IM_COL32(255, 255, 255, 220));
         }
 
         dl->AddRect(pos, {pos.x + W, pos.y + H}, IM_COL32(60, 60, 60, 180));
