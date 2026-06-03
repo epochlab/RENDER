@@ -5,19 +5,16 @@
 @property (nonatomic, assign) OsxMenuFlags* flags;
 - (void)actionCapture:(id)sender;
 - (void)actionSaveJson:(id)sender;
-- (void)actionSkyToggle:(id)sender;
 - (void)actionPanelToggle:(id)sender;
 @end
 
 @implementation AppMenuDelegate
 - (void)actionCapture:(id)sender     { _flags->doCapture  = true; }
 - (void)actionSaveJson:(id)sender    { _flags->doSaveJson = true; }
-- (void)actionSkyToggle:(id)sender   { _flags->skyVisible = !_flags->skyVisible; }
 - (void)actionPanelToggle:(id)sender { _flags->showPanel  = !_flags->showPanel;  }
 @end
 
 static AppMenuDelegate* g_delegate  = nil;
-static NSMenuItem*       g_skyItem   = nil;
 static NSMenuItem*       g_panelItem = nil;
 
 void initOsxMenuBar(OsxMenuFlags* flags) {
@@ -41,15 +38,6 @@ void initOsxMenuBar(OsxMenuFlags* flags) {
                                                keyEquivalent:@""];
     NSMenu* viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
 
-    g_skyItem = [[NSMenuItem alloc] initWithTitle:@"Sky Background"
-                                           action:@selector(actionSkyToggle:)
-                                    keyEquivalent:@""];
-    g_skyItem.target = g_delegate;
-    g_skyItem.state  = flags->skyVisible ? NSControlStateValueOn : NSControlStateValueOff;
-    [viewMenu addItem:g_skyItem];
-
-    [viewMenu addItem:[NSMenuItem separatorItem]];
-
     NSMenuItem* captureItem = [[NSMenuItem alloc] initWithTitle:@"Capture"
                                                          action:@selector(actionCapture:)
                                                   keyEquivalent:@""];
@@ -64,7 +52,7 @@ void initOsxMenuBar(OsxMenuFlags* flags) {
 
     [viewMenu addItem:[NSMenuItem separatorItem]];
 
-    g_panelItem = [[NSMenuItem alloc] initWithTitle:@"Show Panel"
+    g_panelItem = [[NSMenuItem alloc] initWithTitle:@"Show/Hide HUD"
                                              action:@selector(actionPanelToggle:)
                                       keyEquivalent:@""];
     g_panelItem.target = g_delegate;
@@ -78,8 +66,6 @@ void initOsxMenuBar(OsxMenuFlags* flags) {
 }
 
 void syncOsxMenuBar(const OsxMenuFlags& flags) {
-    if (g_skyItem)
-        g_skyItem.state   = flags.skyVisible ? NSControlStateValueOn : NSControlStateValueOff;
     if (g_panelItem)
-        g_panelItem.state = flags.showPanel  ? NSControlStateValueOn : NSControlStateValueOff;
+        g_panelItem.state = flags.showPanel ? NSControlStateValueOn : NSControlStateValueOff;
 }
