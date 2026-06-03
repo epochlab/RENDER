@@ -4,6 +4,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Test Suite] — 2026-06-03
+
+- **Catch2 v3 test suite** — 39 test cases, 118 assertions covering config JSON load/save round-trip, camera filmback/focal-length projection math, Gribb-Hartmann frustum plane extraction, mesh bounding sphere and AABB computation, shader compilation error handling, and texture pixel correctness; all GL tests run headless via a hidden 1×1 GLFW window — no display required
+- **`kodak_core` static library** — sources split into a linkable static lib (all modules except `main.cpp`, ImGui, and the ObjC++ menu); both `KODAK` and `tests_kodak` link against it; test builds exclude the full application dependency chain
+- **Coloured per-test output** — custom Catch2 `EventListenerBase` prints `✓ PASSED` (green) or `✗ FAILED` (red) after each test case; CTest integration via `catch_discover_tests` registers every test case as a separate CTest entry
+- **`focalLength` default corrected** — `AppConfig::Camera.focalLength` struct default fixed from 50 mm to 70 mm to match the `Camera` class constructor and scene.json JSON field default
+
+---
+
 ## [Config Split] — 2026-06-03
 
 - **`profile.json` split into `profile.json` + `scene.json`** — renderer settings (resolution, IBL sample count, IOR, SSAO) live in `profile.json`; scene content (camera, geometry, HDRI, roughness, metallic) live in `scene.json`; both files load independently with the same missing-file / parse-error fallback to defaults
