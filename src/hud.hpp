@@ -5,7 +5,7 @@
 struct ObjectInfo {
     const char* name      = "";
     int         triangles = 0;
-    int         indices   = 0;
+    int         points    = 0;
 };
 
 struct SystemInfo {
@@ -40,7 +40,7 @@ struct FrameStats {
     int       drawCallsTotal  = 0;   // potential draw calls (objects in scene)
     int       drawCallsCulled = 0;   // skipped by frustum cull
     int       totalTriangles  = 0;
-    int       totalIndices    = 0;
+    int       totalPoints     = 0;
     ObjectInfo objects[8]{};
     int       numObjects      = 0;
 

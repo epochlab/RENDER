@@ -170,7 +170,7 @@ void HUD::draw(FrameStats& s) {
     ImGui::Text("Draw calls   %d / %d  (%d culled)",
                 s.drawCalls, s.drawCallsTotal, s.drawCallsCulled);
     ImGui::Text("Triangles    %d", s.totalTriangles);
-    ImGui::Text("Indices      %d", s.totalIndices);
+    ImGui::Text("Points       %d", s.totalPoints);
     if (s.numObjects > 0) {
         ImGui::Spacing();
         for (int i = 0; i < s.numObjects; ++i)

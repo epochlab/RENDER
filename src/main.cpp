@@ -590,7 +590,7 @@ int main() {
             stats.drawCallsTotal  = total;
             stats.drawCallsCulled = total - drawn;
             stats.totalTriangles  = geom.triangleCount();
-            stats.totalIndices    = geom.indexCount();
+            stats.totalPoints     = geom.indexCount();
             stats.triPerSec     = (stats.totalTriangles * smoothFps) / 1e6f;
             stats.width         = BASE_W;
             stats.height        = BASE_H;

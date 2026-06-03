@@ -4,6 +4,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Config Split] — 2026-06-03
+
+- **`profile.json` split into `profile.json` + `scene.json`** — renderer settings (resolution, IBL sample count, IOR, SSAO) live in `profile.json`; scene content (camera, geometry, HDRI, roughness, metallic) live in `scene.json`; both files load independently with the same missing-file / parse-error fallback to defaults
+- **Set JSON writes only runtime state** — View → Set JSON now does a targeted read-modify-write of `scene.json`, persisting only camera position, focal length, and HDRI rotation; all other fields and `profile.json` are left untouched
+- **`Model::vertexCount()` renamed to `indexCount()`** — the method returns the sum of index-buffer sizes, not vertex counts; HUD Scene label updated from "Vertices" to "Points"; internal `FrameStats` fields renamed to match
+
+---
+
 ## [AOV Reorder] — 2026-06-03
 
 - **AOV dropdown reordered** — modes regrouped by category: beauty → alpha → bounds → wireframe → depth → albedo → hsv → luminance → direct_diffuse → direct_refl → world_pos → world_normals → uv → shading_normal → fresnel → occlusion

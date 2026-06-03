@@ -36,7 +36,7 @@ Other actions are in the macOS menu bar:
 |------|------|--------|
 | File | Close | Quit (Cmd+W) |
 | View | Capture | Save screenshot to Desktop |
-| View | Set JSON | Write camera + HDRI state to `profile.json` |
+| View | Set JSON | Write camera position, focal length, and HDRI rotation to `scene.json` |
 | View | Show/Hide HUD | Toggle the HUD stats panel |
 
 ## HUD Panel
@@ -78,9 +78,35 @@ When channel isolation is active (R / G / B hotkey) a coloured label appears in 
 - **Y rot slider** (1–360°) — spin the skydome; IBL lighting rotates with it
 - **Flip V** — vertically flip the equirectangular panorama
 
-## Profile (`profile.json`)
+## Config files
 
 All fields are optional; missing keys fall back to defaults.
+
+### `profile.json` — renderer settings
+
+Edited manually. Never written at runtime.
+
+```jsonc
+{
+  "render": {
+    "width":      2048,         // render resolution width (pixels)
+    "height":     1152,         // render resolution height (pixels)
+    "downsample": 2,            // FBO divisor: 2 → render at BASE/2 on screen
+    "iblSamples": 16            // IBL hemisphere sample count
+  },
+  "shading": {
+    "ior":            1.5,      // index of refraction (1.5 ≈ plastic/glass)
+    "ssaoRadius":     0.5,      // SSAO hemisphere radius in world units
+    "ssaoBias":       0.025,    // SSAO depth bias
+    "ssaoBlurRadius": 2,        // SSAO blur: 1 = 3×3, 2 = 5×5
+    "ssaoHalfRes":    false     // true = half-res SSAO, false = full-res (default)
+  }
+}
+```
+
+### `scene.json` — scene content
+
+Updated by **View → Set JSON** (camera position, focal length, HDRI rotation only).
 
 ```jsonc
 {
@@ -92,12 +118,6 @@ All fields are optional; missing keys fall back to defaults.
     "far":         100.0,       // far clip plane (metres)
     "filmback":    35.0,        // sensor width in mm (35 = full-frame)
     "focalLength": 50.0         // focal length in mm
-  },
-  "render": {
-    "width":      2048,         // render resolution width (pixels)
-    "height":     1152,         // render resolution height (pixels)
-    "downsample": 2,            // FBO divisor: 2 → render at BASE/2 on screen
-    "iblSamples": 16            // IBL hemisphere sample count
   },
   "hdri": {
     "path":     "assets/hdr/…", // equirectangular .hdr / .jpg path
@@ -111,18 +131,11 @@ All fields are optional; missing keys fall back to defaults.
     "rotation": [0, 0, 0]       // XYZ Euler degrees applied to loaded geometry
   },
   "shading": {
-    "roughness":      0.3,      // GGX roughness: 0 = mirror, 1 = fully diffuse
-    "metallic":       0.0,      // 0 = dielectric, 1 = metal
-    "ior":            1.5,      // index of refraction (1.5 ≈ plastic/glass)
-    "ssaoRadius":     0.5,      // SSAO hemisphere radius in world units
-    "ssaoBias":       0.025,    // SSAO depth bias
-    "ssaoBlurRadius": 2,        // SSAO blur: 1 = 3×3, 2 = 5×5
-    "ssaoHalfRes":    false     // true = half-res SSAO, false = full-res (default)
+    "roughness": 0.3,           // GGX roughness: 0 = mirror, 1 = fully diffuse
+    "metallic":  0.0            // 0 = dielectric, 1 = metal
   }
 }
 ```
-
-Use **View → Set JSON** to write the current camera and HDRI state back to `profile.json`.
 
 ## Dependencies
 
@@ -161,7 +174,8 @@ shaders/
 ├── ssao.vert/frag    — SSAO compute pass (64-sample kernel, depth reconstruction)
 ├── ssao_blur.frag    — 5×5 box blur on raw SSAO
 └── blit.vert/frag    — fullscreen composite with SSAO multiply
-profile.json          — runtime scene config (camera, render, HDRI, scene, shading)
+profile.json          — renderer config (render resolution, IBL samples, SSAO, IOR)
+scene.json            — scene content (camera, HDRI, geometry, material overrides)
 ```
 
 ## Roadmap
