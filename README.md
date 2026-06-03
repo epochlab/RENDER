@@ -168,12 +168,12 @@ scene.json                  — scene content (camera, HDRI, geometry, material 
 | Directory Structure — domain-based layout: core/, render/, camera/, ui/ | ✓ |
 | Tests — Catch2 v3 suite, 91 tests / 571 assertions, PBR math, all 16 AOVs, SSAO, CPU math, headless GL | ✓ |
 | Performance profiling and optimisation - Frame-time breakdowns, render-path benchmarking, CPU/GPU bottleneck analysis, histogram/HUD profiling, GPU acceleration (histograms, AOV improvements, post-processing), culling, memory and buffer optimisation, asynchronous updates, OpenGL batching, and benchmark scene regression testing | planned |
-| Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ OCIO Display Transform (sRGB / Rec.709), White Balance & Kelvin-based lighting controls, | planned |
 | Camera &  — ISO, f-stop, shutter speed, focus distance, aspect ratio | planned |
+| Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ OCIO Display Transform (sRGB / Rec.709), White Balance & Kelvin-based lighting controls, | planned |
 | Rendering — Thin lens model, Physical-based spectral GPU path tracing render engine, Monte Carlo Unbiased Global Illumination (Indirect/Multiple Scattering), Correct exposure, Linear workflow, Adaptive Sampling / Multiple importance sampling (MIS), Recursive tracing, Russian roulette termination, Energy conservation, Spectral light transport, Wavelength sampling, Spectral materials, Spectral dispersion, BSDF / PBR materials, BRDF sampling + Importance Sampling, Next-event estimation, HDR IBL, Tone-mapping, Area lights, Shadows / Soft shadows, BVH acceleration, Fresnel effects, Caustics, Path throughput accumulation, Radiance estimation formulation | planned |
 | Post Lens Effects - DoF, chromatic aberration, anamorphic lenses, film grain
 | Displacement: Height map, Disp. bounds, OpenSubD | planned |
-| Geometry & Shader Library — reusable assets, camera presets, and materials files and presets, scene import/export | planned |
+| Asset Management — geometry, materials (files and presets), hdr, camera presets | planned |
 | Test Scenes — teapot, cornell box, three-sphere material test with curved backdrop | planned |
 | HUD: Waveform, AOV min/max (Depth), 2D groundplane, overlay - aspect ratio, Rule-of-Thirds grid | planned |
 | Future Features — alembic (cam and geo), background, turntable, macbeth ColorChecker, diffusion rendering, cross-platform support (NVIDIA and Apple Silicon) | planned |
