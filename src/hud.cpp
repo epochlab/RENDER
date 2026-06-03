@@ -73,8 +73,8 @@ void HUD::draw(FrameStats& s) {
         ImDrawList*  dl   = ImGui::GetForegroundDrawList();
         ImVec2       disp = ImGui::GetIO().DisplaySize;
         ImFont*      font = ImGui::GetFont();
-        const float  fs   = ImGui::GetFontSize();
-        const float  pad  = 10.0f;
+        const float  fs   = ImGui::GetFontSize() + 5.0f;
+        const float  pad  = 15.0f;
         float        y    = pad;
 
         auto drawLabel = [&](const char* text, ImU32 col) {
