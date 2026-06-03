@@ -141,7 +141,8 @@ void HUD::draw(FrameStats& s) {
         }
     }
     ImGui::Text("min %.2f   max %.2f ms", s.frameTimeMin, s.frameTimeMax);
-    ImGui::Text("GPU  geom %.2f  post %.2f ms", s.gpuGeomMs, s.gpuPostMs);
+    ImGui::Text("GPU  geom %.2f  ssao %.2f  blur %.2f  comp %.2f ms",
+                s.gpuGeomMs, s.gpuSsaoMs, s.gpuBlurMs, s.gpuPostMs);
     ImGui::Text("     %.1f Mtri/s  %.1f Mpix/s", s.triPerSec, s.mpixPerSec);
     if (s.frameCap > 0)
         ImGui::Text("Cap   %d fps", s.frameCap);

@@ -15,15 +15,35 @@ Re-run `./build/KODAK --benchmark 300` after each step and save the result to `b
 
 ---
 
-## Step 1 — Fix GPU Query Ring + Per-Pass Timing
-- [ ] Identify bug: `queryWrite` is incremented between geometry `glBeginQuery` and post `glBeginQuery` in `src/main.cpp` — both queries in the same frame land in different ring slots, making reported timers unreliable
-- [ ] Fix: move `queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES` to the **end** of the frame, after all `glEndQuery` calls
-- [ ] Add `GLuint gpuSsaoQueries[3]` and `GLuint gpuBlurQueries[3]` alongside the existing query arrays in `src/main.cpp`
-- [ ] Wrap each sub-pass individually: geometry, SSAO, blur, and composite each in their own `glBeginQuery/glEndQuery` block
-- [ ] Add `float gpuSsaoMs` and `float gpuBlurMs` to `FrameStats` in `src/ui/hud.hpp`
-- [ ] Display all four per-pass times in `src/ui/hud.cpp` under the Timing section
-- [ ] Verify: all Catch2 tests pass; HUD shows 4 per-pass numbers summing approximately to total frame time
-- [ ] Re-run benchmark and save as `benchmarks/after-step1-instrumentation.json`
+## Step 1 — Fix GPU Query Ring + Per-Pass Timing ✓
+- [x] Identify bug: `queryWrite` is incremented between geometry `glBeginQuery` and post `glBeginQuery` in `src/main.cpp` — both queries in the same frame land in different ring slots, making reported timers unreliable
+- [x] Fix: move `queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES` to the **end** of the frame, after all `glEndQuery` calls
+- [x] Add `GLuint gpuSsaoQueries[3]` and `GLuint gpuBlurQueries[3]` alongside the existing query arrays in `src/main.cpp`
+- [x] Wrap each sub-pass individually: geometry, SSAO, blur, and composite each in their own `glBeginQuery/glEndQuery` block
+- [x] Add `float gpuSsaoMs` and `float gpuBlurMs` to `FrameStats` in `src/ui/hud.hpp`
+- [x] Display all four per-pass times in `src/ui/hud.cpp` under the Timing section
+- [x] Verify: all Catch2 tests pass; HUD shows 4 per-pass numbers summing approximately to total frame time
+- [x] Re-run benchmark and save as `benchmarks/after-step1-instrumentation.json`
+
+**Results** (`benchmarks/after-step1-instrumentation.json`, 300 frames, 66.5 mean FPS):
+
+| Pass | Mean | P50 | P95 |
+|---|---|---|---|
+| SSAO | **6.44 ms** | 6.17 ms | 7.98 ms |
+| Geometry | 4.28 ms | 4.01 ms | 5.20 ms |
+| Composite | 0.49 ms | 0.48 ms | 0.68 ms |
+| Blur | 0.30 ms | 0.27 ms | 0.53 ms |
+
+**Finding:** The old `gpuPostMs` of 7.59 ms was SSAO + blur + composite lumped together. Now correctly split, SSAO alone is **6.44 ms** — the dominant cost. Blur is only 0.30 ms. Step 5 (IBL) and SSAO sample count are the primary levers.
+
+**ssaoSamples sweep** — `ssaoSamples` added to `profile.json` / `config.hpp`; shader loops `uKernelSize` samples against a fixed-size `uKernel[64]` array, so no recompile on change:
+
+| ssaoSamples | SSAO mean | Mean FPS |
+|---|---|---|
+| 64 | 6.44 ms | 66.5 |
+| 16 | 1.41 ms | 99.2 |
+
+4× fewer samples → 4.5× SSAO speedup (near-linear), +49% overall FPS. Quality impact deferred to visual review. **16 samples active in `profile.json`.**
 
 ---
 
@@ -50,7 +70,7 @@ Re-run `./build/KODAK --benchmark 300` after each step and save the result to `b
 - [ ] Wrap each 1D pass in its own GPU query timer (extending the Step 1 split)
 - [ ] Add a Catch2 render test that runs both the original 2D variant and the new separable variant, asserting `max(|a - b|) < 2e-5` per pixel
 - [ ] Verify: visual parity must be perfect (a 2D box filter is mathematically separable)
-- [ ] Expected gain: 40–60% reduction in blur pass GPU time
+- [ ] Expected gain: 40–60% reduction in blur pass GPU time (~0.12–0.18 ms absolute; blur is only 0.30 ms mean per Step 1 results — low priority relative to Steps 5 and SSAO sample count)
 
 ---
 

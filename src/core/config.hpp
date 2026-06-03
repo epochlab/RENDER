@@ -24,6 +24,7 @@ struct AppConfig {
         float roughness      = 0.3f;
         float ssaoRadius     = 0.5f;
         float ssaoBias       = 0.025f;
+        int   ssaoSamples    = 64;    // hemisphere kernel size (max 64)
         int   ssaoBlurRadius = 2;     // 1 = 3×3, 2 = 5×5
         bool  ssaoHalfRes    = false; // true = half-res SSAO, false = full-res
         float metallic       = 0.0f; // 0 = dielectric, 1 = metal

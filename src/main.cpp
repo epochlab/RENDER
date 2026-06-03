@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
         LOG_I("HDRI: " + cfg.hdri.path);
 
         // ── SSAO kernel (deterministic, seed 42) ───────────────────
-        std::vector<glm::vec3> ssaoKernel = generateSSAOKernel(42);
+        std::vector<glm::vec3> ssaoKernel = generateSSAOKernel(42, cfg.shading.ssaoSamples);
 
         // ── SSAO noise texture (4×4, GL_REPEAT) — seed 43 ─────────
         std::mt19937 rng(43);
@@ -225,8 +225,9 @@ int main(int argc, char** argv) {
 
         // Pass kernel to SSAO shader once at startup.
         ssaoShader.use();
-        for (int i = 0; i < 64; ++i)
+        for (int i = 0; i < cfg.shading.ssaoSamples; ++i)
             ssaoShader.set("uKernel[" + std::to_string(i) + "]", ssaoKernel[i]);
+        ssaoShader.set("uKernelSize", cfg.shading.ssaoSamples);
         ssaoShader.set("uNoiseScale", glm::vec2(AO_W / 4.0f, AO_H / 4.0f));
 
         // ── Empty VAO for fullscreen draws (gl_VertexID-driven) ────
@@ -258,13 +259,17 @@ int main(int argc, char** argv) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        // ── GPU timer rings (geometry pass + SSAO/blit pass) ──────
+        // ── GPU timer rings (geometry, SSAO, blur, composite) ─────
         constexpr int GPU_QUERY_FRAMES = 3;
         GLuint gpuQueries[GPU_QUERY_FRAMES],     gpuPostQueries[GPU_QUERY_FRAMES];
-        bool   queryStarted[GPU_QUERY_FRAMES]{}, postQueryStarted[GPU_QUERY_FRAMES]{};
+        GLuint gpuSsaoQueries[GPU_QUERY_FRAMES], gpuBlurQueries[GPU_QUERY_FRAMES];
+        bool   queryStarted[GPU_QUERY_FRAMES]{},     postQueryStarted[GPU_QUERY_FRAMES]{};
+        bool   ssaoQueryStarted[GPU_QUERY_FRAMES]{}, blurQueryStarted[GPU_QUERY_FRAMES]{};
         int    queryWrite = 0;
         glGenQueries(GPU_QUERY_FRAMES, gpuQueries);
         glGenQueries(GPU_QUERY_FRAMES, gpuPostQueries);
+        glGenQueries(GPU_QUERY_FRAMES, gpuSsaoQueries);
+        glGenQueries(GPU_QUERY_FRAMES, gpuBlurQueries);
 
         FrameStats stats{};
         stats.hdriYawDeg = cfg.hdri.rotation.y;
@@ -280,10 +285,12 @@ int main(int argc, char** argv) {
         float  smoothFps  = 0.0f;
         double lastTime   = glfwGetTime();
 
-        std::vector<float> cpuTimes, gpuGeomTimes, gpuPostTimes;
+        std::vector<float> cpuTimes, gpuGeomTimes, gpuSsaoTimes, gpuBlurTimes, gpuPostTimes;
         if (benchmarkN > 0) {
             cpuTimes.reserve(benchmarkN);
             gpuGeomTimes.reserve(benchmarkN);
+            gpuSsaoTimes.reserve(benchmarkN);
+            gpuBlurTimes.reserve(benchmarkN);
             gpuPostTimes.reserve(benchmarkN);
             stats.benchmarkMode = true;
         }
@@ -426,6 +433,24 @@ int main(int argc, char** argv) {
                     stats.gpuGeomMs = static_cast<float>(ns) / 1e6f;
                 }
             }
+            if (ssaoQueryStarted[queryWrite]) {
+                GLint available = 0;
+                glGetQueryObjectiv(gpuSsaoQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
+                if (available) {
+                    GLuint ns = 0;
+                    glGetQueryObjectuiv(gpuSsaoQueries[queryWrite], GL_QUERY_RESULT, &ns);
+                    stats.gpuSsaoMs = static_cast<float>(ns) / 1e6f;
+                }
+            }
+            if (blurQueryStarted[queryWrite]) {
+                GLint available = 0;
+                glGetQueryObjectiv(gpuBlurQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
+                if (available) {
+                    GLuint ns = 0;
+                    glGetQueryObjectuiv(gpuBlurQueries[queryWrite], GL_QUERY_RESULT, &ns);
+                    stats.gpuBlurMs = static_cast<float>(ns) / 1e6f;
+                }
+            }
             if (postQueryStarted[queryWrite]) {
                 GLint available = 0;
                 glGetQueryObjectiv(gpuPostQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
@@ -519,13 +544,12 @@ int main(int argc, char** argv) {
 
             glEndQuery(GL_TIME_ELAPSED);
             queryStarted[queryWrite] = true;
-            queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES;
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             glDisable(GL_POLYGON_OFFSET_LINE);
 
             // ── SSAO pass ─────────────────────────────────────────
-            glBeginQuery(GL_TIME_ELAPSED, gpuPostQueries[queryWrite]);
+            glBeginQuery(GL_TIME_ELAPSED, gpuSsaoQueries[queryWrite]);
             glBindFramebuffer(GL_FRAMEBUFFER, ssaoRt.fbo);
             glViewport(0, 0, AO_W, AO_H);
             glDisable(GL_DEPTH_TEST);
@@ -539,15 +563,21 @@ int main(int argc, char** argv) {
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, noiseTex);
             glBindVertexArray(blitVAO);
             glDrawArrays(GL_TRIANGLES, 0, 3);
+            glEndQuery(GL_TIME_ELAPSED);
+            ssaoQueryStarted[queryWrite] = true;
 
             // ── SSAO blur pass ────────────────────────────────────
+            glBeginQuery(GL_TIME_ELAPSED, gpuBlurQueries[queryWrite]);
             glBindFramebuffer(GL_FRAMEBUFFER, blurRt.fbo);
             blurShader.use();
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, ssaoRt.tex);
             glDrawArrays(GL_TRIANGLES, 0, 3);
             glBindVertexArray(0);
+            glEndQuery(GL_TIME_ELAPSED);
+            blurQueryStarted[queryWrite] = true;
 
             // ── Blit FBO → screen ──────────────────────────────────
+            glBeginQuery(GL_TIME_ELAPSED, gpuPostQueries[queryWrite]);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, win.width(), win.height());
             blitShader.use();
@@ -562,6 +592,7 @@ int main(int argc, char** argv) {
             glBindVertexArray(0);
             glEndQuery(GL_TIME_ELAPSED);
             postQueryStarted[queryWrite] = true;
+            queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES;
 
             glEnable(GL_DEPTH_TEST);
 
@@ -636,6 +667,8 @@ int main(int argc, char** argv) {
                 else {
                     cpuTimes.push_back(stats.frameTimeMs);
                     gpuGeomTimes.push_back(stats.gpuGeomMs);
+                    gpuSsaoTimes.push_back(stats.gpuSsaoMs);
+                    gpuBlurTimes.push_back(stats.gpuBlurMs);
                     gpuPostTimes.push_back(stats.gpuPostMs);
                     if (static_cast<int>(cpuTimes.size()) >= benchmarkN) break;
                 }
@@ -711,18 +744,21 @@ int main(int argc, char** argv) {
                 {"meanFps",    1000.0f / meanCpu},
                 {"cpuFrameMs", summarise(cpuTimes)},
                 {"gpuGeomMs",  summarise(gpuGeomTimes)},
+                {"gpuSsaoMs",  summarise(gpuSsaoTimes)},
+                {"gpuBlurMs",  summarise(gpuBlurTimes)},
                 {"gpuPostMs",  summarise(gpuPostTimes)},
                 {"config", {
                     {"width",          BASE_W},
                     {"height",         BASE_H},
                     {"iblSamples",     cfg.render.iblSamples},
+                    {"ssaoSamples",    cfg.shading.ssaoSamples},
                     {"ssaoHalfRes",    cfg.shading.ssaoHalfRes},
                     {"ssaoBlurRadius", cfg.shading.ssaoBlurRadius},
                 }},
             };
-            std::ofstream f("benchmarks/baseline.json");
-            if (!f) { LOG_E("Could not open benchmarks/baseline.json for writing"); }
-            else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to benchmarks/baseline.json"); }
+            std::ofstream f("benchmarks/after-step1-instrumentation.json");
+            if (!f) { LOG_E("Could not open benchmarks/after-step1-instrumentation.json for writing"); }
+            else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to benchmarks/after-step1-instrumentation.json"); }
         }
 
         rt.destroy();
@@ -736,6 +772,8 @@ int main(int argc, char** argv) {
         glDeleteBuffers(1, &boxVBO);
         glDeleteQueries(GPU_QUERY_FRAMES, gpuQueries);
         glDeleteQueries(GPU_QUERY_FRAMES, gpuPostQueries);
+        glDeleteQueries(GPU_QUERY_FRAMES, gpuSsaoQueries);
+        glDeleteQueries(GPU_QUERY_FRAMES, gpuBlurQueries);
 
     } catch (const std::exception& e) {
         LOG_E(std::string("Fatal: ") + e.what());

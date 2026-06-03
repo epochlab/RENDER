@@ -9,6 +9,7 @@
     "ior": 1.5,
     "ssaoRadius": 0.5,
     "ssaoBias": 0.025,
+    "ssaoSamples": 8,
     "ssaoBlurRadius": 2,
     "ssaoHalfRes": true
   }

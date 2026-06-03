@@ -21,7 +21,9 @@ struct FrameStats {
     float     frameTimeMin    = 0.0f;   // over the 128-frame history window
     float     frameTimeMax    = 0.0f;
     float     gpuGeomMs       = 0.0f;   // geometry pass GPU time
-    float     gpuPostMs       = 0.0f;   // SSAO + blit GPU time
+    float     gpuSsaoMs       = 0.0f;   // SSAO pass GPU time
+    float     gpuBlurMs       = 0.0f;   // blur pass GPU time
+    float     gpuPostMs       = 0.0f;   // composite blit GPU time
     float     triPerSec       = 0.0f;   // Mtri/s
     float     mpixPerSec      = 0.0f;   // Mpix/s
     int       frameCap        = 0;      // 0 = vsync/unlimited
