@@ -1,5 +1,11 @@
 # KODAK
 
+**Project ID:** vN8qTe3L
+
+<p align="center">
+  <img src="sample.png">
+</p>
+
 ## Requirements
 
 - macOS (OpenGL 3.3 Core Profile via system framework)
@@ -16,34 +22,6 @@ make run    # build and run
 make clean  # wipe build/
 ```
 
-## Testing
-
-```bash
-# Configure + build (includes tests_kodak binary)
-cmake --preset default && cmake --build --preset default -j
-
-# Run all 91 tests via CTest
-ctest --preset default --output-on-failure
-
-# Run directly for coloured ✓ / ✗ output per test
-./build/tests_kodak
-```
-
-Tests run headless — no display or GPU session required. Each test case registers individually in CTest so `ctest -R <pattern>` filters by name (e.g. `ctest -R Camera`).
-
-| Suite | Tests | Coverage |
-|-------|-------|---------|
-| Config | 7 | JSON load/save, per-key defaults, malformed input, round-trip |
-| Camera | 9 | FOV from filmback/focal length, projection depth terms, viewMatrix orthonormality, front direction, pitch clamp |
-| Frustum | 8 | Plane extraction, unit-length normals, sphere inside/outside/boundary |
-| Mesh | 6 | Bounding radius, AABB, index/triangle counts, move semantics |
-| Shader | 4 | Compile success, syntax error throws, missing file throws |
-| Texture | 5 | `white()` and `flatNormal()` pixel correctness, bind unit, move semantics |
-| PBR math | 11 | Schlick Fresnel, Smith G masking, IOR→F0, metallic blend, energy conservation |
-| AOV modes | 16 | All 16 view modes verified by rendering to a 1×1 FBO and reading back the pixel |
-| SSAO math | 11 | Depth reconstruction round-trip, smoothstep range check, kernel hemisphere/determinism |
-| CPU math | 20 | EMA FPS, HDRI Euler rotation, histogram triangle kernel, sqrt normalisation, grayscale/near-binary detection, frame-time min/max |
-
 ## Controls
 
 | Input | Action |
@@ -58,22 +36,7 @@ Tests run headless — no display or GPU session required. Each test case regist
 | H | Show / hide HUD stats panel |
 | ESC | Quit |
 
-Other actions are in the macOS menu bar:
-
-| Menu | Item | Action |
-|------|------|--------|
-| File | Close | Quit (Cmd+W) |
-| View | Capture | Save screenshot to Desktop |
-| View | Set JSON | Write camera position, focal length, and HDRI rotation to `scene.json` |
-| View | Show/Hide HUD | Toggle the HUD stats panel |
-
-## HUD Panel
-
-The overlay panel (top-left) shows frame timing, memory, viewport, scene stats, and camera parameters. When hidden, a **◈** button in the top-right corner restores it.
-
-When channel isolation is active (R / G / B hotkey) a coloured label appears in the top-right corner of the viewport — always visible regardless of panel state.
-
-**AOV** dropdown (bottom of panel) — selects the active output channel:
+## AOV Panel
 
 | Mode | Channel |
 |------|---------|
@@ -93,77 +56,6 @@ When channel isolation is active (R / G / B hotkey) a coloured label appears in 
 | shading_normal | TBN-perturbed shading normal |
 | fresnel | F term — red (facing) → green (grazing) |
 | occlusion | SSAO occlusion |
-
-**Histogram** — RGB or greyscale channel distribution plotted below the AOV selector:
-- Full-RGB passes (beauty, albedo, normals, …) show B/G/R filled curves back-to-front with a white overlap zone where all three channels coincide
-- 2-channel passes (UV, Fresnel) show only the active channels; overlap is `min(R,G)`
-- Greyscale passes (alpha, luminance, wireframe, depth) show a single grey curve; near-binary passes (alpha) use a full-range peak so endpoint spikes are visible
-- Scale is sqrt-normalised against the interior peak (bins 1–254) to prevent background/saturation spikes from dominating; a triangle-weighted kernel replaces the box filter so narrow spikes render as peaked humps rather than flat-topped rectangles
-
-**Frame graph** — instantaneous FPS history in white with a red horizontal line marking the smoothed average.
-
-**HDRI** section (bottom of panel):
-- **Y rot slider** (1–360°) — spin the skydome; IBL lighting rotates with it
-- **Flip V** — vertically flip the equirectangular panorama
-
-## Config files
-
-All fields are optional; missing keys fall back to defaults.
-
-### `profile.json` — renderer settings
-
-Edited manually. Never written at runtime.
-
-```jsonc
-{
-  "render": {
-    "width":      2048,         // render resolution width (pixels)
-    "height":     1152,         // render resolution height (pixels)
-    "downsample": 2,            // FBO divisor: 2 → render at BASE/2 on screen
-    "iblSamples": 16            // IBL hemisphere sample count
-  },
-  "shading": {
-    "ior":            1.5,      // index of refraction (1.5 ≈ plastic/glass)
-    "ssaoRadius":     0.5,      // SSAO hemisphere radius in world units
-    "ssaoBias":       0.025,    // SSAO depth bias
-    "ssaoBlurRadius": 2,        // SSAO blur: 1 = 3×3, 2 = 5×5
-    "ssaoHalfRes":    false     // true = half-res SSAO, false = full-res (default)
-  }
-}
-```
-
-### `scene.json` — scene content
-
-Updated by **View → Set JSON** (camera position, focal length, HDRI rotation only).
-
-```jsonc
-{
-  "camera": {
-    "position":    [x, y, z],   // world-space eye position
-    "yaw":         -90.0,       // horizontal rotation in degrees
-    "pitch":       0.0,         // vertical rotation in degrees
-    "near":        0.1,         // near clip plane (metres)
-    "far":         100.0,       // far clip plane (metres)
-    "filmback":    35.0,        // sensor width in mm (35 = full-frame)
-    "focalLength": 70.0         // focal length in mm
-  },
-  "hdri": {
-    "path":     "assets/hdr/…", // equirectangular .hdr / .jpg path
-    "exposure": 1.0,            // linear brightness multiplier
-    "rotation": [0, 0, 0],      // XYZ Euler degrees applied to sky direction
-    "visible":  true,           // draw sky background on startup
-    "flipV":    false           // flip panorama vertically
-  },
-  "scene": {
-    "geometry": "assets/geo/…", // glTF 2.0 file path
-    "rotation": [0, 0, 0]       // XYZ Euler degrees applied to loaded geometry
-  },
-  "shading": {
-    "roughness": 0.3,           // GGX roughness: 0 = mirror, 1 = fully diffuse
-    "metallic":  0.0            // 0 = dielectric, 1 = metal
-  }
-}
-```
 
 ## Dependencies
 
@@ -223,6 +115,34 @@ tests/
 profile.json                — renderer config (resolution, IBL samples, SSAO, IOR)
 scene.json                  — scene content (camera, HDRI, geometry, material overrides)
 ```
+
+## Testing
+
+```bash
+# Configure + build (includes tests_kodak binary)
+cmake --preset default && cmake --build --preset default -j
+
+# Run all 91 tests via CTest
+ctest --preset default --output-on-failure
+
+# Run directly for coloured ✓ / ✗ output per test
+./build/tests_kodak
+```
+
+Tests run headless — no display or GPU session required. Each test case registers individually in CTest so `ctest -R <pattern>` filters by name (e.g. `ctest -R Camera`).
+
+| Suite | Tests | Coverage |
+|-------|-------|---------|
+| Config | 7 | JSON load/save, per-key defaults, malformed input, round-trip |
+| Camera | 9 | FOV from filmback/focal length, projection depth terms, viewMatrix orthonormality, front direction, pitch clamp |
+| Frustum | 8 | Plane extraction, unit-length normals, sphere inside/outside/boundary |
+| Mesh | 6 | Bounding radius, AABB, index/triangle counts, move semantics |
+| Shader | 4 | Compile success, syntax error throws, missing file throws |
+| Texture | 5 | `white()` and `flatNormal()` pixel correctness, bind unit, move semantics |
+| PBR math | 11 | Schlick Fresnel, Smith G masking, IOR→F0, metallic blend, energy conservation |
+| AOV modes | 16 | All 16 view modes verified by rendering to a 1×1 FBO and reading back the pixel |
+| SSAO math | 11 | Depth reconstruction round-trip, smoothstep range check, kernel hemisphere/determinism |
+| CPU math | 20 | EMA FPS, HDRI Euler rotation, histogram triangle kernel, sqrt normalisation, grayscale/near-binary detection, frame-time min/max |
 
 ## Roadmap
 

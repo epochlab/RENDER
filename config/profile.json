@@ -10,6 +10,6 @@
     "ssaoRadius": 0.5,
     "ssaoBias": 0.025,
     "ssaoBlurRadius": 2,
-    "ssaoHalfRes": false
+    "ssaoHalfRes": true
   }
 }
