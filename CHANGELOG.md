@@ -6,10 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Test Suite] — 2026-06-03
 
-- **Catch2 v3 test suite** — 39 test cases, 118 assertions covering config JSON load/save round-trip, camera filmback/focal-length projection math, Gribb-Hartmann frustum plane extraction, mesh bounding sphere and AABB computation, shader compilation error handling, and texture pixel correctness; all GL tests run headless via a hidden 1×1 GLFW window — no display required
-- **`kodak_core` static library** — sources split into a linkable static lib (all modules except `main.cpp`, ImGui, and the ObjC++ menu); both `KODAK` and `tests_kodak` link against it; test builds exclude the full application dependency chain
-- **Coloured per-test output** — custom Catch2 `EventListenerBase` prints `✓ PASSED` (green) or `✗ FAILED` (red) after each test case; CTest integration via `catch_discover_tests` registers every test case as a separate CTest entry
-- **`focalLength` default corrected** — `AppConfig::Camera.focalLength` struct default fixed from 50 mm to 70 mm to match the `Camera` class constructor and scene.json JSON field default
+- **91 tests, 571 assertions** — full regression suite covering config I/O, camera math, frustum culling, mesh bounds, shader compilation, texture correctness, PBR BSDF math, all 16 AOV modes, SSAO math, and CPU-side rendering math
+- **PBR BSDF verification** — C++ replicas of Schlick Fresnel, Smith G masking, IOR→F0 and metallic blending, and energy conservation (Ld + Ls = 1.0 with white IBL and white albedo)
+- **All 16 AOV modes pixel-verified** — `RenderHarness` renders each view mode to a headless 1×1 FBO with analytically controlled inputs (white HDRI, white albedo, flat normal, NdotV=1) and reads back the pixel via `glReadPixels`; covers beauty, alpha, bounds, wireframe, depth, albedo, HSV, luminance, direct_diffuse, direct_refl, world_pos, world_normals, UV, shading_normal, fresnel, and occlusion
+- **SSAO math tests** — depth reconstruction round-trip (`viewPosFromDepth`), smoothstep range-check boundary cases, and kernel property assertions (upper hemisphere, unit sphere, determinism, seed independence)
+- **CPU math tests** — EMA FPS smoothing, HDRI Z-Y-X Euler rotation matrix (identity, Rx/Ry correctness, orthonormality), histogram triangle-kernel convolution, sqrt normalisation, grayscale and near-binary detection, frame-time min/max
+- **`generateSSAOKernel` extracted** — SSAO kernel generation moved from `main.cpp` into `src/core/ssao_kernel.hpp` (header-only, seed-based, bit-reproducible); noise texture seeded separately with seed 43
+- **`kodak_core` static library** — all modules except `main.cpp`, ImGui, and the ObjC++ menu compiled into a shared static lib; both `KODAK` and `tests_kodak` link against it
+- **Coloured per-test output** — custom Catch2 `EventListenerBase` prints `✓ PASSED` (green) or `✗ FAILED` (red) per test case; full CTest integration via `catch_discover_tests`
+- **`focalLength` default corrected** — `AppConfig::Camera.focalLength` fixed from 50 mm to 70 mm to match the `Camera` constructor and scene.json JSON default
 
 ---
 

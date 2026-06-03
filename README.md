@@ -22,7 +22,7 @@ make clean  # wipe build/
 # Configure + build (includes tests_kodak binary)
 cmake --preset default && cmake --build --preset default -j
 
-# Run all 39 tests via CTest
+# Run all 91 tests via CTest
 ctest --preset default --output-on-failure
 
 # Run directly for coloured ✓ / ✗ output per test
@@ -39,6 +39,10 @@ Tests run headless — no display or GPU session required. Each test case regist
 | Mesh | 6 | Bounding radius, AABB, index/triangle counts, move semantics |
 | Shader | 4 | Compile success, syntax error throws, missing file throws |
 | Texture | 5 | `white()` and `flatNormal()` pixel correctness, bind unit, move semantics |
+| PBR math | 11 | Schlick Fresnel, Smith G masking, IOR→F0, metallic blend, energy conservation |
+| AOV modes | 16 | All 16 view modes verified by rendering to a 1×1 FBO and reading back the pixel |
+| SSAO math | 11 | Depth reconstruction round-trip, smoothstep range check, kernel hemisphere/determinism |
+| CPU math | 20 | EMA FPS, HDRI Euler rotation, histogram triangle kernel, sqrt normalisation, grayscale/near-binary detection, frame-time min/max |
 
 ## Controls
 
@@ -242,7 +246,7 @@ scene.json                  — scene content (camera, HDRI, geometry, material 
 | Hotkeys — RGBA channel overlay, luminance (Y), invert (I), HUD toggle (H), focal length slider | ✓ |
 | AOVs — Reorder, add HSV AOV, RGB histogram in HUD. 2-channel AOV support (UV/Fresnel), histogram artefact fixes (diagonal fringe, endpoint spikes), FPS graph avg overlay. | ✓ |
 | Directory Structure — domain-based layout: core/, render/, camera/, ui/ | ✓ |
-| Tests — Catch2 v3 suite, 39 tests / 118 assertions, headless GL, coloured output, CTest integration | ✓ |
+| Tests — Catch2 v3 suite, 91 tests / 571 assertions, PBR math, all 16 AOVs, SSAO, CPU math, headless GL | ✓ |
 | HUD: Waveform, AOV min/max (Depth), 2D groundplane, overlay - cross, camera square, aspect safe zones, grid (3x3 with sub-lines which are darker)
 | Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ sRGB and Rec709 viewing LUTs | planned |
 | Camera & Lens Effects — ISO, f-stop, shutter speed, DoF, focus distance, chromatic aberration, anamorphic lenses, aspect ratio, Kelvin-based lighting controls, film grain | planned |
