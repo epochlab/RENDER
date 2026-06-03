@@ -17,5 +17,17 @@
             "name": "default",
             "configurePreset": "default"
         }
+    ],
+    "testPresets": [
+        {
+            "name": "default",
+            "configurePreset": "default",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        }
     ]
 }

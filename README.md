@@ -16,6 +16,34 @@ make run    # build and run
 make clean  # wipe build/
 ```
 
+## Testing
+
+```bash
+# Configure + build (includes tests_kodak binary)
+cmake --preset default && cmake --build --preset default -j
+
+# Run all 91 tests via CTest
+ctest --preset default --output-on-failure
+
+# Run directly for coloured ✓ / ✗ output per test
+./build/tests_kodak
+```
+
+Tests run headless — no display or GPU session required. Each test case registers individually in CTest so `ctest -R <pattern>` filters by name (e.g. `ctest -R Camera`).
+
+| Suite | Tests | Coverage |
+|-------|-------|---------|
+| Config | 7 | JSON load/save, per-key defaults, malformed input, round-trip |
+| Camera | 9 | FOV from filmback/focal length, projection depth terms, viewMatrix orthonormality, front direction, pitch clamp |
+| Frustum | 8 | Plane extraction, unit-length normals, sphere inside/outside/boundary |
+| Mesh | 6 | Bounding radius, AABB, index/triangle counts, move semantics |
+| Shader | 4 | Compile success, syntax error throws, missing file throws |
+| Texture | 5 | `white()` and `flatNormal()` pixel correctness, bind unit, move semantics |
+| PBR math | 11 | Schlick Fresnel, Smith G masking, IOR→F0, metallic blend, energy conservation |
+| AOV modes | 16 | All 16 view modes verified by rendering to a 1×1 FBO and reading back the pixel |
+| SSAO math | 11 | Depth reconstruction round-trip, smoothstep range check, kernel hemisphere/determinism |
+| CPU math | 20 | EMA FPS, HDRI Euler rotation, histogram triangle kernel, sqrt normalisation, grayscale/near-binary detection, frame-time min/max |
+
 ## Controls
 
 | Input | Action |
@@ -117,7 +145,7 @@ Updated by **View → Set JSON** (camera position, focal length, HDRI rotation o
     "near":        0.1,         // near clip plane (metres)
     "far":         100.0,       // far clip plane (metres)
     "filmback":    35.0,        // sensor width in mm (35 = full-frame)
-    "focalLength": 50.0         // focal length in mm
+    "focalLength": 70.0         // focal length in mm
   },
   "hdri": {
     "path":     "assets/hdr/…", // equirectangular .hdr / .jpg path
@@ -148,6 +176,7 @@ Fetched automatically by CMake:
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.91.9 | HUD overlay |
 | [cgltf](https://github.com/jkuhlmann/cgltf) | 1.14 | glTF 2.0 parsing (header-only) |
 | [nlohmann/json](https://github.com/nlohmann/json) | 3.11.3 | JSON config (header-only) |
+| [Catch2](https://github.com/catchorg/Catch2) | 3.7.1 | Test framework (tests only) |
 
 OpenGL, Cocoa, stb_image, and stb_image_write are provided by the macOS system frameworks and committed headers respectively.
 
@@ -155,27 +184,44 @@ OpenGL, Cocoa, stb_image, and stb_image_write are provided by the macOS system f
 
 ```
 src/
-├── main.cpp          — render loop, G-buffer, SSAO, config wiring
-├── config.hpp/.cpp   — JSON profile loader/saver (nlohmann/json, ordered)
-├── window.hpp/.cpp   — GLFW window + context (Retina-aware)
-├── shader.hpp/.cpp   — GLSL compile/link, uniform setters
-├── camera.hpp/.cpp   — filmback/focal-length camera, LMB orbit (depth-sampled pivot)
-├── mesh.hpp/.cpp     — VAO/VBO/EBO geometry, cube/plane/sphere factories
-├── texture.hpp/.cpp  — PNG/JPG/HDR loading via stb_image (RGBA8 + RGB16F)
-├── hud.hpp/.cpp      — Dear ImGui overlay (crosshair, AOV, HDRI controls, stats)
-├── menu_osx.hpp/.mm  — Native macOS menu bar via Cocoa (ObjC++ bridge)
-├── frustum.hpp       — Gribb-Hartmann frustum planes, sphere culling test
-├── model.hpp/.cpp    — glTF 2.0 loader (cgltf), Model/SubMesh, node transform walk
-└── cgltf_impl.cpp    — cgltf single-header implementation unit
+├── main.cpp                — render loop, G-buffer, SSAO pipeline, config wiring
+├── core/
+│   ├── config.hpp/.cpp     — JSON profile/scene loader/saver (nlohmann/json)
+│   └── log.hpp             — structured logger (DEBUG/INFO/WARN/ERROR → stderr)
+├── render/
+│   ├── window.hpp/.cpp     — GLFW window + OpenGL 3.3 Core context
+│   ├── shader.hpp/.cpp     — GLSL compile/link, uniform cache
+│   ├── mesh.hpp/.cpp       — VAO/VBO/EBO geometry, bounding sphere + AABB
+│   ├── texture.hpp/.cpp    — PNG/JPG/HDR loading via stb_image (RGBA8 + RGB16F)
+│   ├── model.hpp/.cpp      — glTF 2.0 loader (cgltf), Model/SubMesh, node transform walk
+│   └── frustum.hpp         — Gribb-Hartmann frustum planes, sphere culling test
+├── camera/
+│   └── camera.hpp/.cpp     — filmback/focal-length camera, LMB orbit (depth-sampled pivot)
+└── ui/
+    ├── hud.hpp/.cpp        — Dear ImGui overlay (crosshair, AOV, histogram, stats)
+    └── menu_osx.hpp/.mm    — Native macOS menu bar via Cocoa (ObjC++ bridge)
 shaders/
-├── basic.vert/frag   — MVP transform, G-buffer MRT, PBR BSDF, 14 AOV modes
-├── line.vert/frag    — flat-colour GL_LINES pass for the bounds AOV bounding box
-├── sky.vert/frag     — equirectangular HDRI skydome (rotation, exposure, flip)
-├── ssao.vert/frag    — SSAO compute pass (64-sample kernel, depth reconstruction)
-├── ssao_blur.frag    — 5×5 box blur on raw SSAO
-└── blit.vert/frag    — fullscreen composite with SSAO multiply
-profile.json          — renderer config (render resolution, IBL samples, SSAO, IOR)
-scene.json            — scene content (camera, HDRI, geometry, material overrides)
+├── geometry/
+│   └── pbr.vert/.frag      — MVP transform, G-buffer MRT, PBR BSDF, 16 AOV modes
+├── post/
+│   ├── blit.vert/.frag     — fullscreen composite, SSAO multiply, channel overlay
+│   ├── ssao.vert/.frag     — SSAO compute (64-sample kernel, depth reconstruction)
+│   └── ssao_blur.frag      — 3×3 / 5×5 box blur on raw SSAO
+├── sky/
+│   └── sky.vert/.frag      — equirectangular HDRI skydome (rotation, exposure, flip)
+└── debug/
+    └── bounds.vert/.frag   — flat-colour GL_LINES pass for the AABB wireframe box
+tests/
+├── gl_context.hpp/.cpp     — headless GLFW singleton (hidden 1×1 window, GL 3.3 Core)
+├── reporter.cpp            — Catch2 listener: ✓ PASSED (green) / ✗ FAILED (red)
+├── test_camera.cpp         — projection math, viewMatrix, front direction, pitch clamp
+├── test_config.cpp         — JSON load/save round-trip, defaults, malformed input
+├── test_frustum.cpp        — plane extraction, sphere inside/outside/boundary
+├── test_mesh.cpp           — bounding radius, AABB, counts, move semantics
+├── test_shader.cpp         — compile success/failure, missing file
+└── test_texture.cpp        — pixel correctness, bind unit, move semantics
+profile.json                — renderer config (resolution, IBL samples, SSAO, IOR)
+scene.json                  — scene content (camera, HDRI, geometry, material overrides)
 ```
 
 ## Roadmap
@@ -199,14 +245,15 @@ scene.json            — scene content (camera, HDRI, geometry, material overri
 | Performance Profiling (GUI) — render time, rays/sec, samples/sec, memory usage | ✓ |
 | Hotkeys — RGBA channel overlay, luminance (Y), invert (I), HUD toggle (H), focal length slider | ✓ |
 | AOVs — Reorder, add HSV AOV, RGB histogram in HUD. 2-channel AOV support (UV/Fresnel), histogram artefact fixes (diagonal fringe, endpoint spikes), FPS graph avg overlay. | ✓ |
-| HUD - Panel Tabs (1: Viewport, Scene 2: Camera, Lens, HDRI 3: AOV, Histogram 4: GPU, Frame, Memory) | planned |
-| Directory Structure — designed for future expansion, procedural development, maintainability, and clean code organization | planned |
-| Tests - A full detailed suite of tests and professional engineering to resolve bugs errors overloads and security | planned |
+| Directory Structure — domain-based layout: core/, render/, camera/, ui/ | ✓ |
+| Tests — Catch2 v3 suite, 91 tests / 571 assertions, PBR math, all 16 AOVs, SSAO, CPU math, headless GL | ✓ |
+| HUD: Waveform, AOV min/max (Depth), 2D groundplane, overlay - cross, camera square, aspect safe zones, grid (3x3 with sub-lines which are darker)
 | Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ sRGB and Rec709 viewing LUTs | planned |
 | Camera & Lens Effects — ISO, f-stop, shutter speed, DoF, focus distance, chromatic aberration, anamorphic lenses, aspect ratio, Kelvin-based lighting controls, film grain | planned |
 | Shader update — RGB albedo color parameter (white default), indirect (self-reflection, refraction, SSS) | planned |
 | Ray Tracing — shadows, area lights, indirect illumination, brute-force path tracing | planned |
 | Sampling — adaptive sampling, multiple importance sampling (MIS) | planned |
+| Displacement: Height map, Displacement bounds, SubDivision at Render Time
 | Geometry & Shader Library — reusable assets, camera presets, and materials files and presets, scene import/export | planned |
 | Test Scenes — teapot, cornell box, three-sphere material test with curved backdrop | planned |
 | Future Features — 2d groundplane, alembic (cam and geo), turntable, macbeth ColorChecker, diffusion rendering, cross-platform support (NVIDIA and Apple Silicon) | planned |

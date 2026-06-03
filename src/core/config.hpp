@@ -10,7 +10,7 @@ struct AppConfig {
         float     near       =   0.1f;
         float     far        = 100.f;
         float     filmback   =  35.f;
-        float     focalLength = 50.f;
+        float     focalLength = 70.f;
     } camera;
 
     struct Render {

@@ -22,6 +22,7 @@
 #include "model.hpp"
 #include "config.hpp"
 #include "log.hpp"
+#include "ssao_kernel.hpp"
 
 static Camera* g_camera = nullptr;
 
@@ -187,19 +188,11 @@ int main() {
         LOG_I("HDRI: " + cfg.hdri.path);
 
         // ── SSAO kernel (deterministic, seed 42) ───────────────────
-        std::mt19937 rng(42);
+        std::vector<glm::vec3> ssaoKernel = generateSSAOKernel(42);
+
+        // ── SSAO noise texture (4×4, GL_REPEAT) — seed 43 ─────────
+        std::mt19937 rng(43);
         std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-
-        std::vector<glm::vec3> ssaoKernel(64);
-        for (int i = 0; i < 64; ++i) {
-            glm::vec3 s(dist(rng)*2.0f-1.0f, dist(rng)*2.0f-1.0f, dist(rng));
-            s = glm::normalize(s) * dist(rng);
-            float scale = float(i) / 64.0f;
-            s *= 0.1f + scale * scale * 0.9f;
-            ssaoKernel[i] = s;
-        }
-
-        // ── SSAO noise texture (4×4, GL_REPEAT) ───────────────────
         std::vector<glm::vec3> noiseData(16);
         for (auto& n : noiseData)
             n = glm::vec3(dist(rng)*2.0f-1.0f, dist(rng)*2.0f-1.0f, 0.0f);

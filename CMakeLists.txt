@@ -51,6 +51,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG        v3.7.1
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(Catch2)
+
 add_library(imgui_lib STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -66,41 +74,59 @@ target_include_directories(imgui_lib PUBLIC
 target_link_libraries(imgui_lib PUBLIC glfw OpenGL::GL)
 target_compile_definitions(imgui_lib PUBLIC GL_SILENCE_DEPRECATION GLFW_INCLUDE_GLCOREARB)
 
-add_executable(KODAK
-    src/main.cpp
+# ── Shared core (no main, no ObjC++ menu, no stb-write) ──────────────────────
+add_library(kodak_core STATIC
     src/render/window.cpp
     src/render/shader.cpp
     src/camera/camera.cpp
     src/render/mesh.cpp
     src/render/texture.cpp
-    src/ui/hud.cpp
     src/render/model.cpp
     src/core/config.cpp
-    src/ui/menu_osx.mm
     src/render/cgltf_impl.cpp
-    src/render/stb_write_impl.cpp
     external/stb/stb_image.cpp
 )
-
-target_include_directories(KODAK PRIVATE
+target_include_directories(kodak_core PUBLIC
     src
     src/core
     src/render
     src/camera
-    src/ui
     external/stb
     ${cgltf_SOURCE_DIR}
 )
+target_compile_definitions(kodak_core PUBLIC GL_SILENCE_DEPRECATION GLFW_INCLUDE_GLCOREARB)
+target_link_libraries(kodak_core PUBLIC OpenGL::GL glm::glm glfw nlohmann_json::nlohmann_json)
 
-target_compile_definitions(KODAK PRIVATE
-    GL_SILENCE_DEPRECATION
-    GLFW_INCLUDE_GLCOREARB
+# ── Main application ──────────────────────────────────────────────────────────
+add_executable(KODAK
+    src/main.cpp
+    src/ui/hud.cpp
+    src/ui/menu_osx.mm
+    src/render/stb_write_impl.cpp
 )
+target_include_directories(KODAK PRIVATE src src/ui)
+target_link_libraries(KODAK PRIVATE kodak_core imgui_lib "-framework Cocoa")
 
-target_link_libraries(KODAK PRIVATE
-    OpenGL::GL
-    glm::glm
-    imgui_lib
-    nlohmann_json::nlohmann_json
-    "-framework Cocoa"
+# ── Tests ─────────────────────────────────────────────────────────────────────
+enable_testing()
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(Catch)
+
+add_executable(tests_kodak
+    tests/gl_context.cpp
+    tests/reporter.cpp
+    tests/test_config.cpp
+    tests/test_camera.cpp
+    tests/test_frustum.cpp
+    tests/test_mesh.cpp
+    tests/test_shader.cpp
+    tests/test_texture.cpp
+    tests/render_harness.cpp
+    tests/test_pbr_math.cpp
+    tests/test_aov.cpp
+    tests/test_ssao_math.cpp
+    tests/test_cpu_math.cpp
 )
+target_include_directories(tests_kodak PRIVATE tests)
+target_link_libraries(tests_kodak PRIVATE kodak_core Catch2::Catch2WithMain)
+catch_discover_tests(tests_kodak WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
