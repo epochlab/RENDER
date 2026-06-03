@@ -35,10 +35,9 @@ Other actions are in the macOS menu bar:
 | Menu | Item | Action |
 |------|------|--------|
 | File | Close | Quit (Cmd+W) |
-| View | Sky Background | Toggle HDRI sky in beauty mode |
 | View | Capture | Save screenshot to Desktop |
 | View | Set JSON | Write camera + HDRI state to `profile.json` |
-| View | Show Panel | Toggle the HUD stats panel |
+| View | Show/Hide HUD | Toggle the HUD stats panel |
 
 ## HUD Panel
 

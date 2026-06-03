@@ -129,7 +129,6 @@ int main() {
         });
 
         OsxMenuFlags menuFlags;
-        menuFlags.skyVisible = cfg.hdri.visible;
         initOsxMenuBar(&menuFlags);
 
         // ── Shaders ────────────────────────────────────────────────
@@ -620,10 +619,8 @@ int main() {
             // Merge native menu one-shot actions into stats, then sync checkmarks.
             if (menuFlags.doCapture)  { stats.doCapture  = true; menuFlags.doCapture  = false; }
             if (menuFlags.doSaveJson) { stats.doSaveJson = true; menuFlags.doSaveJson = false; }
-            if (menuFlags.skyVisible != skyVisible) {
-                skyVisible       = menuFlags.skyVisible;
-                stats.skyVisible = menuFlags.skyVisible;
-            }
+            if (menuFlags.showPanel != stats.showPanel)
+                stats.showPanel = menuFlags.showPanel;
 
             viewMode            = stats.viewMode;
             cfg.hdri.rotation.y = stats.hdriYawDeg;
@@ -631,8 +628,7 @@ int main() {
             skyVisible          = stats.skyVisible;
             camera.setFocalLength(stats.camFocalLengthMm);
 
-            menuFlags.skyVisible = skyVisible;
-            menuFlags.showPanel  = stats.showPanel;
+            menuFlags.showPanel = stats.showPanel;
             syncOsxMenuBar(menuFlags);
 
             if (stats.doCapture) {
