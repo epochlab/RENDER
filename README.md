@@ -69,7 +69,7 @@ When channel isolation is active (R / G / B hotkey) a coloured label appears in 
 - Full-RGB passes (beauty, albedo, normals, …) show B/G/R filled curves back-to-front with a white overlap zone where all three channels coincide
 - 2-channel passes (UV, Fresnel) show only the active channels; overlap is `min(R,G)`
 - Greyscale passes (alpha, luminance, wireframe, depth) show a single grey curve; near-binary passes (alpha) use a full-range peak so endpoint spikes are visible
-- Scale is sqrt-normalised against the interior peak (bins 1–254) to prevent background/saturation spikes from dominating
+- Scale is sqrt-normalised against the interior peak (bins 1–254) to prevent background/saturation spikes from dominating; a triangle-weighted kernel replaces the box filter so narrow spikes render as peaked humps rather than flat-topped rectangles
 
 **Frame graph** — instantaneous FPS history in white with a red horizontal line marking the smoothed average.
 

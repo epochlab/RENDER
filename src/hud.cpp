@@ -227,13 +227,14 @@ void HUD::draw(FrameStats& s) {
         float smooth[3][256];
         auto smoothChannel = [&](int c, uint32_t peak, int radius = 4) {
             for (int b = 0; b < 256; ++b) {
-                float sum = 0.0f; int cnt = 0;
+                float sum = 0.0f, wsum = 0.0f;
                 for (int k = b - radius; k <= b + radius; ++k) {
                     if (k < 1 || k > 254) continue;
-                    sum += sqrtf(float(std::min(s.hist[c][k], peak)) / float(peak));
-                    ++cnt;
+                    float w = float(radius + 1 - std::abs(k - b));  // triangle kernel
+                    sum  += w * sqrtf(float(std::min(s.hist[c][k], peak)) / float(peak));
+                    wsum += w;
                 }
-                smooth[c][b] = sum / cnt;
+                smooth[c][b] = wsum > 0.0f ? sum / wsum : 0.0f;
             }
         };
 

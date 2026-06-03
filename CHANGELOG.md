@@ -4,6 +4,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Histogram Triangle Kernel] — 2026-06-03
+
+- **Histogram smooth — box filter replaced with triangle kernel** — `smoothChannel` previously used a uniform (box) weight per bin, which produced flat-topped rectangular shapes for narrow-spike AOVs (wireframe MSAA scatter, bounds grey fill). Replaced with an inverse-distance triangle weight (`radius + 1 − |k − b|`), so a 1–2 bin spike now maps to a symmetric peaked hump rather than a plateau. Continuous distributions (beauty, UV, depth) are visually unchanged since adjacent bins are all occupied and the weighted average converges to the same result.
+
+---
+
 ## [SSAO Full-Res] — 2026-06-03
 
 - **SSAO restored to full resolution** — render targets (`ssaoRt`, `blurRt`) and the SSAO/blur viewport now run at `BASE_W × BASE_H` by default, eliminating the half-res downsample and its implicit bilinear upsample artefacts
