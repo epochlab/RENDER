@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <mach/mach.h>
 #include "exr_io.hpp"
+#include "color_pipeline.hpp"
 #include <stdexcept>
 #include <random>
 #include <string>
@@ -267,9 +268,10 @@ int main(int argc, char** argv) {
 
         Shader blitShader("shaders/post/blit.vert", "shaders/post/blit.frag");
         blitShader.use();
-        blitShader.set("uFrame", 0);
-        blitShader.set("uAO",    1);
-        blitShader.set("uDepth", 2);
+        blitShader.set("uFrame",    0);
+        blitShader.set("uAO",       1);
+        blitShader.set("uDepth",    2);
+        blitShader.set("uColorLUT", 3);
 
         Shader skyShader("shaders/sky/sky.vert", "shaders/sky/sky.frag");
         skyShader.use();
@@ -328,6 +330,7 @@ int main(int argc, char** argv) {
         const GLint blitLocExposure      = blitShader.uniformLoc("uExposure");
         const GLint blitLocAspectEnabled = blitShader.uniformLoc("uAspectEnabled");
         const GLint blitLocAspectRatio   = blitShader.uniformLoc("uAspectRatio");
+        const GLint blitLocLutEnabled    = blitShader.uniformLoc("uLutEnabled");
 
         const GLint dofLocNear          = dofShader.uniformLoc("uNear");
         const GLint dofLocFar           = dofShader.uniformLoc("uFar");
@@ -350,6 +353,9 @@ int main(int argc, char** argv) {
         g_camera = &camera;
 
         HUD hud(win.handle());
+
+        ColorPipeline colorPipeline;
+        colorPipeline.bake(static_cast<ViewLut>(cfg.color.viewLut));
 
         Texture skyTex(cfg.hdri.path);
         Model   geom = Model::loadGLTF(cfg.scene.geometry);
@@ -478,6 +484,7 @@ int main(int argc, char** argv) {
         stats.hdriEvOffset     = cfg.hdri.exposure;
         stats.skyVisible       = cfg.hdri.visible;
         stats.showPanel        = true;
+        stats.viewLut          = cfg.color.viewLut;
         stats.camISO           = cfg.camera.iso;
         stats.camFStop         = cfg.camera.fStop;
         stats.camShutterSpeed  = cfg.camera.shutterSpeed;
@@ -875,9 +882,11 @@ int main(int argc, char** argv) {
             }
             blitShader.setAt(blitLocAspectEnabled, stats.camAspectEnabled);
             blitShader.setAt(blitLocAspectRatio,   stats.camAspectRatio);
+            blitShader.setAt(blitLocLutEnabled,    colorPipeline.enabled());
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, blitColorTex);
             glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, blurRt.tex);
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, rt.depthTex);
+            glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_3D, colorPipeline.lut_tex());
             glBindVertexArray(blitVAO);
             glDrawArrays(GL_TRIANGLES, 0, 3);
             glBindVertexArray(0);
@@ -1021,6 +1030,12 @@ int main(int argc, char** argv) {
             if (menuFlags.doSaveJson) { stats.doSaveJson = true; menuFlags.doSaveJson = false; }
             if (menuFlags.showPanel != stats.showPanel)
                 stats.showPanel = menuFlags.showPanel;
+
+            if (stats.viewLutChanged) {
+                cfg.color.viewLut = stats.viewLut;
+                colorPipeline.bake(static_cast<ViewLut>(cfg.color.viewLut));
+                stats.viewLutChanged = false;
+            }
 
             viewMode             = stats.viewMode;
             cfg.hdri.rotation.y  = stats.hdriYawDeg;

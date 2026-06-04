@@ -86,6 +86,11 @@ AppConfig loadConfig(const std::string& profilePath, const std::string& scenePat
         cfg.hdri.flipV     = jb(h.value("flipV",     json(false)),  cfg.hdri.flipV);
     }
 
+    if (p.contains("color")) {
+        const auto& c = p["color"];
+        cfg.color.viewLut = ji(c.value("viewLut", json(1)), cfg.color.viewLut);
+    }
+
     // ── scene.json: geometry path, scene rotation, shading overrides ──
     json sc = openJson(scenePath, "scene.json");
 

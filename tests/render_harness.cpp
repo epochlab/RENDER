@@ -83,11 +83,24 @@ RenderHarness::RenderHarness()
     pbrShader->set("uHdriRotMat",    glm::mat3(1.0f));
     pbrShader->set("uHdriIntensity", 1.0f);
 
+    // ── Stub 3D LUT texture (1^3 white) ─────────────────────────────────────
+    // The blit shader declares sampler3D uColorLUT; a type-mismatched unit
+    // corrupts all outputs on Metal-backed GL even in dead branches.
+    float white3[3] = {1.0f, 1.0f, 1.0f};
+    glGenTextures(1, &lutTex3D);
+    glBindTexture(GL_TEXTURE_3D, lutTex3D);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB16F, 1, 1, 1, 0, GL_RGB, GL_FLOAT, white3);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_3D, 0);
+
     // ── Static blit uniforms ──────────────────────────────────────────────
     blitShader->use();
     blitShader->set("uFrame",       0);
     blitShader->set("uAO",          1);
     blitShader->set("uDepth",       2);
+    blitShader->set("uColorLUT",    3);
+    blitShader->set("uLutEnabled",  false);
     blitShader->set("uChannelView", 0);
     blitShader->set("uInvert",      false);
     blitShader->set("uExposure",      1.0f);
@@ -96,6 +109,7 @@ RenderHarness::RenderHarness()
 }
 
 RenderHarness::~RenderHarness() {
+    if (lutTex3D)  glDeleteTextures(1, &lutTex3D);
     if (blitVAO)   glDeleteVertexArrays(1, &blitVAO);
     if (gFbo)      glDeleteFramebuffers(1, &gFbo);
     if (screenFbo) glDeleteFramebuffers(1, &screenFbo);
@@ -140,6 +154,8 @@ glm::vec3 RenderHarness::renderMode(int viewMode) const {
     aoTex.bind(1);                             // AO = white (1.0)
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, depthTex);   // G-buffer depth
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_3D, lutTex3D);   // stub 3D LUT (uLutEnabled=false)
 
     glBindVertexArray(blitVAO);
     glDrawArrays(GL_TRIANGLES, 0, 3);

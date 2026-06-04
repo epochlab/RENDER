@@ -226,6 +226,18 @@ void HUD::draw(FrameStats& s) {
         ImGui::Text("EV100  %.2f", ev100);
     }
 
+    // ── Color ─────────────────────────────────────────────────
+    sectionHeader("Color");
+    {
+        static const char* k_lutNames[] = { "Raw", "ACES sRGB", "ACES Rec.709" };
+        int idx = s.viewLut;
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::Combo("##viewlut", &idx, k_lutNames, 3)) {
+            s.viewLut        = idx;
+            s.viewLutChanged = true;
+        }
+    }
+
     // ── Depth of Field ────────────────────────────────────────
     sectionHeader("Depth of Field");
     ImGui::Checkbox("Enable DoF", &s.camDofEnabled);
