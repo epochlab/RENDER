@@ -56,6 +56,7 @@ vec3 schlickFresnel(vec3 F0, float cosTheta) {
 
 // Smith view-side masking (IBL remap k=a²/2, Karis 2013).
 // Goes to 0 at grazing — counteracts Fresnel rim on rough surfaces.
+// Duplicated in brdf_lut.frag — GLSL 3.30 has no #include.
 float geoSmithIBL(float NdotV, float a) {
     float k = a * a * 0.5;
     return NdotV / max(NdotV * (1.0 - k) + k, 1e-6);

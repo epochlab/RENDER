@@ -22,6 +22,7 @@ public:
     void set(const std::string& name, bool b) const;
     void bindUniformBlock(const std::string& name, GLuint bindingPoint) const;
 
+    // Direct GL query — use once at startup to pre-cache locations in caller locals.
     GLint uniformLoc(const std::string& name) const;
 
     void setAt(GLint loc, const glm::mat4& m) const;
@@ -35,6 +36,7 @@ public:
 private:
     GLuint m_program;
     mutable std::unordered_map<std::string, GLint> m_locCache;
+    // Lazy-caches via m_locCache; called by every set(name, ...) overload.
     GLint loc(const std::string& name) const;
     static GLuint compile(const std::string& path, GLenum type);
 };

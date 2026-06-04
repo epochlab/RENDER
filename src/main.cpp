@@ -581,6 +581,7 @@ int main(int argc, char** argv) {
             cachedHdriFlipV  = cfg.hdri.flipV;
             skyShader.use();
             skyShader.set("uHdriRotMat", cachedHdriRot);
+            // Identity: IBL bakes are rotation-agnostic; uHdriRotMat in pbr.frag applies live rotation.
             baker.bake(skyTex.id(), glm::mat3(1.f), 1.0f, cfg.hdri.flipV, cfg.render.iblSamples);
         }
 
@@ -776,7 +777,8 @@ int main(int argc, char** argv) {
             glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, baker.prefilteredTex);
             glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, baker.brdfLUT);
 
-            int drawn = 0, total = 1;
+            int drawn = 0;
+            const int total = 1;  // single model; extend here when multi-model is added
             glm::vec3 geomCentre = glm::vec3(geomMat * glm::vec4(geom.centre(), 1.0f));
             if (frustum.testSphere(geomCentre, geom.boundingRadius())) {
                 geom.draw(shader, geomMat);
@@ -1071,6 +1073,7 @@ int main(int argc, char** argv) {
             win.swapAndPoll();
 
             if (iblPending) {
+                // Identity: IBL bakes are rotation-agnostic; uHdriRotMat in pbr.frag applies live rotation.
                 baker.bake(skyTex.id(), glm::mat3(1.f), 1.0f, cfg.hdri.flipV, cfg.render.iblSamples);
                 iblPending = false;
             }

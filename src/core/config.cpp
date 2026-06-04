@@ -16,7 +16,7 @@ static int ji(const json& j, int def) {
 }
 static glm::vec3 jvec3(const json& j, glm::vec3 def) {
     if (j.is_array() && j.size() == 3)
-        return {j[0].get<float>(), j[1].get<float>(), j[2].get<float>()};
+        return { jf(j[0], def.x), jf(j[1], def.y), jf(j[2], def.z) };
     return def;
 }
 

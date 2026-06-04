@@ -19,6 +19,7 @@ vec3 uvToDir(vec2 uv) {
     return vec3(sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi));
 }
 
+// Duplicated from irradiance.frag: GLSL 3.30 has no #include.
 vec3 sampleHdri(vec3 dir) {
     dir = uHdriRotMat * dir;
     float phi   = atan(dir.z, dir.x);

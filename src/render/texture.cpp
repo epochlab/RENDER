@@ -6,6 +6,7 @@ Texture::Texture(const std::string& path, GLenum wrapMode) {
     bool isHdr = path.size() >= 4 && path.substr(path.size() - 4) == ".hdr";
 
     if (isHdr) {
+        // HDR equirectangular: no flip — equirect sampling expects +Y = up.
         stbi_set_flip_vertically_on_load(false);
         int w, h, ch;
         float* data = stbi_loadf(path.c_str(), &w, &h, &ch, 3);
@@ -23,6 +24,7 @@ Texture::Texture(const std::string& path, GLenum wrapMode) {
         return;
     }
 
+    // LDR: flip to match OpenGL's bottom-left origin convention.
     stbi_set_flip_vertically_on_load(true);
     int w, h, channels;
     // Always load as RGBA so the alpha channel is available for debug views.
