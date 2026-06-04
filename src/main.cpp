@@ -527,9 +527,12 @@ int main(int argc, char** argv) {
                         glm::rotate(glm::mat4(1.f), hdriRotRad.x, glm::vec3(1,0,0)));
                     cachedHdriAngles = cfg.hdri.rotation;
                 }
+                bool nonRotDirty = (cfg.hdri.exposure != cachedHdriExposure
+                                 || cfg.hdri.flipV    != cachedHdriFlipV);
                 cachedHdriExposure = cfg.hdri.exposure;
                 cachedHdriFlipV    = cfg.hdri.flipV;
-                iblPending = true;
+                // Defer rotation-only bake while slider is held; exposure/flipV bake immediately.
+                if (nonRotDirty || !stats.hdriYawDragging) iblPending = true;
             }
             const glm::mat3& hdriRotMat = cachedHdriRot;
 

@@ -70,9 +70,9 @@ TEST_CASE("AOV render modes: pixel readback for all 16 view modes") {
         check(h.renderMode(9), 1.0f, 1.0f, 1.0f);
     }
 
-    SECTION("mode 10  direct_refl: split-sum with white test textures — Ls saturates to white") {
-        // prefiltered=(1,1,1), brdf.rg=(1,1): Ls=(1*(0.04*1+1))=1.04 → clamped to 1.0 in GL_RGB8
-        check(h.renderMode(10), 1.0f, 1.0f, 1.0f);
+    SECTION("mode 10  direct_refl: F*prefiltered with white maps — Ls=fresnelWeighted*1") {
+        // roughness=0, NoV=1: G_V=1, schlick(0.04,1)=0.04 → F=0.04; prefiltered=(1,1,1) → Ls=0.04
+        check(h.renderMode(10), 0.04f, 0.04f, 0.04f);
     }
 
     SECTION("mode 11  world_pos: (0,0,0) in [-1,1]^3 bounds → (0.5,0.5,0.5)") {

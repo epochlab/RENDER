@@ -35,7 +35,7 @@ void main() {
     vec3 acc = vec3(0.0);
     for (int i = 0; i < uSamples; i++) {
         float u        = (float(i) + 0.5) / float(uSamples);
-        float cosTheta = pow(1.0 - u, 1.0);
+        float cosTheta = pow(1.0 - u, 0.5);
         float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
         float phi      = PHI * float(i);
         vec3  local    = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);

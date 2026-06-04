@@ -97,17 +97,19 @@ void main() {
         gColor = vec4(texture(uIrradianceTex, sampleEnvUV(shadingNormal())).rgb, 1.0);
 
     } else if (uViewMode == 10) {
-        // direct_refl — split-sum prefiltered specular
+        // direct_refl — prefiltered specular with lobe-centre shift (matches pre-Step-5 reflectionIBL)
         vec3  n       = shadingNormal();
         vec3  viewDir = normalize(uCamPos - vFragPos);
         float NoV     = max(dot(n, viewDir), 0.0);
         vec3  albedo  = texture(uAlbedo, vUV).rgb;
         float f0Dia   = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
         vec3  F0      = mix(vec3(f0Dia), albedo, uMetallic);
-        vec3  r            = reflect(-viewDir, n);
-        vec3  prefiltered  = textureLod(uPrefilteredTex, sampleEnvUV(r), uRoughness * uMaxMipLevel).rgb;
-        vec2  brdf         = texture(uBrdfLUT, vec2(NoV, uRoughness)).rg;
-        gColor = vec4(prefiltered * (F0 * brdf.x + brdf.y), 1.0);
+        float a_sq        = uRoughness * uRoughness;
+        vec3  r           = reflect(-viewDir, n);
+        vec3  dir         = normalize(mix(r, n, a_sq));
+        vec3  prefiltered = textureLod(uPrefilteredTex, sampleEnvUV(dir), uRoughness * uMaxMipLevel).rgb;
+        vec3  F           = fresnelWeighted(F0, NoV, uRoughness);
+        gColor = vec4(F * prefiltered, 1.0);
 
     } else if (uViewMode == 11) {
         // world_pos — normalized against scene AABB for a continuous colour gradient
@@ -148,10 +150,11 @@ void main() {
         vec3  F0           = mix(vec3(f0Dielectric), albedo, uMetallic);
         vec3  F            = fresnelWeighted(F0, NoV, uRoughness);
         vec3  Ld = albedo * (1.0 - F) * (1.0 - uMetallic) * texture(uIrradianceTex, sampleEnvUV(n)).rgb;
+        float a_sq         = uRoughness * uRoughness;
         vec3  r            = reflect(-viewDir, n);
-        vec3  prefiltered  = textureLod(uPrefilteredTex, sampleEnvUV(r), uRoughness * uMaxMipLevel).rgb;
-        vec2  brdf         = texture(uBrdfLUT, vec2(NoV, uRoughness)).rg;
-        vec3  Ls           = prefiltered * (F0 * brdf.x + brdf.y);
+        vec3  dir          = normalize(mix(r, n, a_sq));
+        vec3  prefiltered  = textureLod(uPrefilteredTex, sampleEnvUV(dir), uRoughness * uMaxMipLevel).rgb;
+        vec3  Ls           = F * prefiltered;
         gColor = vec4(Ld + Ls, 1.0);
     }
 }

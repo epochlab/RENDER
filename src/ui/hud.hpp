@@ -68,8 +68,9 @@ struct FrameStats {
     int         histValid     = 0;
 
     // HDRI controls
-    float       hdriYawDeg    = 0.0f;
-    bool        hdriFlipV     = false;
+    float       hdriYawDeg      = 0.0f;
+    bool        hdriFlipV       = false;
+    bool        hdriYawDragging = false;  // true while slider is held (defers bake)
 
     // Channel / invert mode
     int         channelView   = 0;    // 0=RGB 1=R 2=G 3=B
