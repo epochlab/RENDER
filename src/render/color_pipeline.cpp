@@ -23,9 +23,9 @@ void ColorPipeline::bake(ViewLut mode, int size) {
     if (mode == ViewLut::Raw || !m_config) return;
 
     const char* display = (mode == ViewLut::ACES_sRGB)
-                        ? "sRGB"
-                        : "Rec.1886 / Rec.709 Video";
-    const char* view = "ACES 1.0 SDR-video";
+                        ? "sRGB - Display"
+                        : "Rec.1886 Rec.709 - Display";
+    const char* view = "ACES 1.0 - SDR Video";
 
     OCIO::ConstCPUProcessorRcPtr cpu;
     try {

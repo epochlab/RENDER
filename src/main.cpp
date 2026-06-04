@@ -1106,11 +1106,52 @@ int main(int argc, char** argv) {
                     return buf;
                 };
 
+                // Read single-channel AO (GL_R16F) and replicate to RGB.
+                auto read_ao = [&](GLuint tex) {
+                    AovBuffer buf;
+                    buf.name = "ao";
+                    buf.rgb.resize(static_cast<size_t>(BASE_W * BASE_H * 3));
+                    std::vector<float> tmp(static_cast<size_t>(BASE_W * BASE_H));
+                    glBindTexture(GL_TEXTURE_2D, tex);
+                    glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, tmp.data());
+                    for (int y = 0; y < BASE_H; ++y) {
+                        const int src_y = BASE_H - 1 - y;
+                        for (int x = 0; x < BASE_W; ++x) {
+                            const float v   = tmp[src_y * BASE_W + x];
+                            const int   dst = (y * BASE_W + x) * 3;
+                            buf.rgb[dst + 0] = v;
+                            buf.rgb[dst + 1] = v;
+                            buf.rgb[dst + 2] = v;
+                        }
+                    }
+                    return buf;
+                };
+
+                // Re-render a data pass into rt.fbo and read colorTex.
+                // The blit has already run so overwriting rt is safe; IBL units 3-5 remain bound.
+                auto render_aov = [&](int mode, const std::string& name) {
+                    shader.use();
+                    shader.setAt(pbrLocViewMode, mode);
+                    glBindFramebuffer(GL_FRAMEBUFFER, rt.fbo);
+                    glViewport(0, 0, BASE_W, BASE_H);
+                    glEnable(GL_DEPTH_TEST);
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    geom.draw(shader, geomMat);
+                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                    return read_rgb(rt.colorTex, name, 1.0f);
+                };
+
                 try {
                     write_exr_multilayer(fname, BASE_W, BASE_H, {
-                        read_rgb(rt.colorTex,  "beauty",  finalExposure),
-                        read_rgb(rt.normalTex, "normals", 1.0f),
+                        read_rgb(rt.colorTex,  "beauty",         finalExposure),
+                        read_rgb(rt.normalTex, "normals",        1.0f),
                         read_depth(rt.depthTex),
+                        read_ao(blurRt.tex),
+                        render_aov(6,  "albedo"),
+                        render_aov(9,  "direct_diffuse"),
+                        render_aov(10, "direct_refl"),
                     });
                     LOG_I("Export OpenEXR: " + fname);
                 } catch (const std::exception& e) {
