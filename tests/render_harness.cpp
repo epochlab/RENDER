@@ -23,6 +23,9 @@ RenderHarness::RenderHarness()
     , skyTex(Texture::white())
     , normalMapTex(Texture::flatNormal())
     , aoTex(Texture::white())
+    , iblIrradianceTex(Texture::white())
+    , iblPrefilteredTex(Texture::white())
+    , iblBrdfLutTex(Texture::white())
 {
     // ── G-buffer FBO ──────────────────────────────────────────────────────
     colorTex  = makeTex(GL_RGB16F,            GL_RGB,   GL_FLOAT,        GL_NEAREST);
@@ -62,13 +65,12 @@ RenderHarness::RenderHarness()
 
     // ── Static pbr uniforms ───────────────────────────────────────────────
     pbrShader->use();
-    pbrShader->set("uAlbedo",    0);
-    pbrShader->set("uSkyHDR",    1);
-    pbrShader->set("uNormalMap", 2);
-    pbrShader->set("uIblSamples", 1);
-    pbrShader->set("uHdriExposure", 1.0f);
-    pbrShader->set("uHdriRotMat", glm::mat3(1.0f));
-    pbrShader->set("uHdriFlipV", false);
+    pbrShader->set("uAlbedo",         0);
+    pbrShader->set("uNormalMap",      2);
+    pbrShader->set("uIrradianceTex",  3);
+    pbrShader->set("uPrefilteredTex", 4);
+    pbrShader->set("uBrdfLUT",        5);
+    pbrShader->set("uMaxMipLevel",    4.0f);
     pbrShader->set("uCamPos",   glm::vec3(0.0f, 0.0f, 5.0f));
     pbrShader->set("uRoughness", 0.0f);
     pbrShader->set("uMetallic",  0.0f);
@@ -111,8 +113,10 @@ glm::vec3 RenderHarness::renderMode(int viewMode) const {
     pbrShader->use();
     pbrShader->set("uViewMode", viewMode);
     albedoTex.bind(0);
-    skyTex.bind(1);
     normalMapTex.bind(2);
+    iblIrradianceTex.bind(3);
+    iblPrefilteredTex.bind(4);
+    iblBrdfLutTex.bind(5);
 
     glBindVertexArray(blitVAO);
     glDrawArrays(GL_TRIANGLES, 0, 3);

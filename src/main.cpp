@@ -117,6 +117,109 @@ struct SsaoTarget {
     }
 };
 
+// ── IBL precomputation baker ──────────────────────────────────────────────────
+struct IblBaker {
+    GLuint irradianceTex  = 0;   // GL_RGB16F 128×64
+    GLuint prefilteredTex = 0;   // GL_RGB16F 512×256, 5 mip levels
+    GLuint brdfLUT        = 0;   // GL_RG16F  512×512
+    GLuint fbo            = 0;
+    std::unique_ptr<Shader> irrShader;
+    std::unique_ptr<Shader> prefilterShader;
+    std::unique_ptr<Shader> brdfShader;
+    bool brdfReady = false;
+
+    static GLuint makeFloatTex(int w, int h, GLenum internalFmt, bool mipmaps) {
+        GLenum baseFmt = (internalFmt == GL_RG16F) ? GL_RG : GL_RGB;
+        GLuint id;
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFmt, w, h, 0, baseFmt, GL_FLOAT, nullptr);
+        if (mipmaps) {
+            glGenerateMipmap(GL_TEXTURE_2D);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        } else {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return id;
+    }
+
+    void create() {
+        irrShader       = std::make_unique<Shader>("shaders/post/blit.vert", "shaders/bake/irradiance.frag");
+        prefilterShader = std::make_unique<Shader>("shaders/post/blit.vert", "shaders/bake/prefilter.frag");
+        brdfShader      = std::make_unique<Shader>("shaders/post/blit.vert", "shaders/bake/brdf_lut.frag");
+        irradianceTex  = makeFloatTex(128, 64,  GL_RGB16F, false);
+        prefilteredTex = makeFloatTex(512, 256, GL_RGB16F, true);
+        brdfLUT        = makeFloatTex(512, 512, GL_RG16F,  false);
+        glGenFramebuffers(1, &fbo);
+    }
+
+    void bake(GLuint hdriTexId, const glm::mat3& rot, float exposure, bool flipV, int samples) {
+        GLuint bakVAO = 0;
+        glGenVertexArrays(1, &bakVAO);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glDisable(GL_DEPTH_TEST);
+
+        // ── BRDF LUT (view-independent, baked once) ───────────────────
+        if (!brdfReady) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfLUT, 0);
+            glViewport(0, 0, 512, 512);
+            brdfShader->use();
+            brdfShader->set("uSamples", samples);
+            glBindVertexArray(bakVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            brdfReady = true;
+        }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, hdriTexId);
+
+        // ── Irradiance map ────────────────────────────────────────────
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, irradianceTex, 0);
+        glViewport(0, 0, 128, 64);
+        irrShader->use();
+        irrShader->set("uHdriTex",      0);
+        irrShader->set("uHdriRotMat",   rot);
+        irrShader->set("uHdriExposure", exposure);
+        irrShader->set("uHdriFlipV",    flipV);
+        irrShader->set("uSamples",      samples);
+        glBindVertexArray(bakVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        // ── Prefiltered specular (5 mip levels) ───────────────────────
+        prefilterShader->use();
+        prefilterShader->set("uHdriTex",      0);
+        prefilterShader->set("uHdriRotMat",   rot);
+        prefilterShader->set("uHdriExposure", exposure);
+        prefilterShader->set("uHdriFlipV",    flipV);
+        prefilterShader->set("uSamples",      samples);
+        for (int mip = 0; mip < 5; ++mip) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prefilteredTex, mip);
+            glViewport(0, 0, 512 >> mip, 256 >> mip);
+            prefilterShader->set("uRoughness", static_cast<float>(mip) / 4.0f);
+            glBindVertexArray(bakVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDeleteVertexArrays(1, &bakVAO);
+        glFinish();
+    }
+
+    void destroy() {
+        irrShader.reset();
+        prefilterShader.reset();
+        brdfShader.reset();
+        if (fbo)            { glDeleteFramebuffers(1, &fbo);        fbo           = 0; }
+        if (irradianceTex)  { glDeleteTextures(1, &irradianceTex);  irradianceTex = 0; }
+        if (prefilteredTex) { glDeleteTextures(1, &prefilteredTex); prefilteredTex = 0; }
+        if (brdfLUT)        { glDeleteTextures(1, &brdfLUT);        brdfLUT       = 0; }
+    }
+};
+
 int main(int argc, char** argv) {
     int         benchmarkN   = 0;
     std::string benchmarkOut;
@@ -155,10 +258,12 @@ int main(int argc, char** argv) {
         // ── Shaders ────────────────────────────────────────────────
         Shader shader("shaders/geometry/pbr.vert", "shaders/geometry/pbr.frag");
         shader.use();
-        shader.set("uAlbedo",     0);
-        shader.set("uSkyHDR",     1);
-        shader.set("uNormalMap",  2);
-        shader.set("uIblSamples", cfg.render.iblSamples);
+        shader.set("uAlbedo",        0);
+        shader.set("uNormalMap",     2);
+        shader.set("uIrradianceTex", 3);
+        shader.set("uPrefilteredTex",4);
+        shader.set("uBrdfLUT",       5);
+        shader.set("uMaxMipLevel",   4.0f);
 
         Shader blitShader("shaders/post/blit.vert", "shaders/post/blit.frag");
         blitShader.use();
@@ -250,6 +355,9 @@ int main(int argc, char** argv) {
         ssaoRt.create(AO_W, AO_H);
         blurRt.create(AO_W, AO_H);
         blurTmpRt.create(AO_W, AO_H);
+
+        IblBaker baker;
+        baker.create();
 
         // ── Histogram readback target (256×144 RGB8, fixed size) ──────
         GLuint histFBO = 0, histTex = 0;
@@ -376,24 +484,52 @@ int main(int argc, char** argv) {
 
         glm::vec3 cachedHdriAngles(std::numeric_limits<float>::max());
         glm::mat3 cachedHdriRot(1.f);
-        bool      hdriDirty = false;
+        float     cachedHdriExposure = std::numeric_limits<float>::max();
+        bool      cachedHdriFlipV   = false;
+        bool      hdriDirty  = false;
+        bool      iblPending = false;
+
+        // ── Initial IBL bake (pre-loop so frame 1 uses correct maps) ──
+        {
+            const glm::vec3 rad(
+                glm::radians(cfg.hdri.rotation.x),
+                glm::radians(cfg.hdri.rotation.y),
+                glm::radians(cfg.hdri.rotation.z));
+            cachedHdriRot = glm::mat3(
+                glm::rotate(glm::mat4(1.f), rad.z, glm::vec3(0,0,1)) *
+                glm::rotate(glm::mat4(1.f), rad.y, glm::vec3(0,1,0)) *
+                glm::rotate(glm::mat4(1.f), rad.x, glm::vec3(1,0,0)));
+            cachedHdriAngles   = cfg.hdri.rotation;
+            cachedHdriExposure = cfg.hdri.exposure;
+            cachedHdriFlipV    = cfg.hdri.flipV;
+            skyShader.use();
+            skyShader.set("uHdriRotMat", cachedHdriRot);
+            baker.bake(skyTex.id(), cachedHdriRot, cfg.hdri.exposure, cfg.hdri.flipV, cfg.render.iblSamples);
+        }
 
         while (!win.shouldClose()) {
             double now = glfwGetTime();
             float  dt  = static_cast<float>(now - lastTime);
             lastTime   = now;
 
-            hdriDirty = (cfg.hdri.rotation != cachedHdriAngles);
+            hdriDirty = (cfg.hdri.rotation != cachedHdriAngles
+                      || cfg.hdri.exposure != cachedHdriExposure
+                      || cfg.hdri.flipV    != cachedHdriFlipV);
             if (hdriDirty) {
-                const glm::vec3 hdriRotRad(
-                    glm::radians(cfg.hdri.rotation.x),
-                    glm::radians(cfg.hdri.rotation.y),
-                    glm::radians(cfg.hdri.rotation.z));
-                cachedHdriRot = glm::mat3(
-                    glm::rotate(glm::mat4(1.f), hdriRotRad.z, glm::vec3(0,0,1)) *
-                    glm::rotate(glm::mat4(1.f), hdriRotRad.y, glm::vec3(0,1,0)) *
-                    glm::rotate(glm::mat4(1.f), hdriRotRad.x, glm::vec3(1,0,0)));
-                cachedHdriAngles = cfg.hdri.rotation;
+                if (cfg.hdri.rotation != cachedHdriAngles) {
+                    const glm::vec3 hdriRotRad(
+                        glm::radians(cfg.hdri.rotation.x),
+                        glm::radians(cfg.hdri.rotation.y),
+                        glm::radians(cfg.hdri.rotation.z));
+                    cachedHdriRot = glm::mat3(
+                        glm::rotate(glm::mat4(1.f), hdriRotRad.z, glm::vec3(0,0,1)) *
+                        glm::rotate(glm::mat4(1.f), hdriRotRad.y, glm::vec3(0,1,0)) *
+                        glm::rotate(glm::mat4(1.f), hdriRotRad.x, glm::vec3(1,0,0)));
+                    cachedHdriAngles = cfg.hdri.rotation;
+                }
+                cachedHdriExposure = cfg.hdri.exposure;
+                cachedHdriFlipV    = cfg.hdri.flipV;
+                iblPending = true;
             }
             const glm::mat3& hdriRotMat = cachedHdriRot;
 
@@ -530,9 +666,6 @@ int main(int argc, char** argv) {
             shader.set("uViewMode",        viewMode);
             shader.set("uNear",            camera.nearPlane());
             shader.set("uFar",             camera.farPlane());
-            shader.set("uHdriExposure",    cfg.hdri.exposure);
-            if (hdriDirty) shader.set("uHdriRotMat", hdriRotMat);
-            shader.set("uHdriFlipV",       cfg.hdri.flipV);
             shader.set("uCamPos",          camera.position());
             shader.set("uRoughness",       cfg.shading.roughness);
             shader.set("uMetallic",        cfg.shading.metallic);
@@ -564,7 +697,9 @@ int main(int argc, char** argv) {
                 shader.use();
             }
 
-            skyTex.bind(1);  // HDRI on unit 1 for diffuse irradiance
+            glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, baker.irradianceTex);
+            glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, baker.prefilteredTex);
+            glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, baker.brdfLUT);
 
             int drawn = 0, total = 1;
             glm::vec3 geomCentre = glm::vec3(geomMat * glm::vec4(geom.centre(), 1.0f));
@@ -748,6 +883,16 @@ int main(int argc, char** argv) {
 
             if (!stats.benchmarkMode) {
                 hud.beginFrame();
+                if (iblPending) {
+                    ImGui::SetNextWindowPos(ImVec2(win.width() * 0.5f - 55.0f, win.height() * 0.5f - 12.0f));
+                    ImGui::SetNextWindowBgAlpha(0.75f);
+                    ImGui::Begin("##baking", nullptr,
+                        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoNav |
+                        ImGuiWindowFlags_NoMove);
+                    ImGui::Text("Baking IBL...");
+                    ImGui::End();
+                }
                 hud.draw(stats);
                 hud.endFrame();
             }
@@ -796,6 +941,11 @@ int main(int argc, char** argv) {
             }
 
             win.swapAndPoll();
+
+            if (iblPending) {
+                baker.bake(skyTex.id(), cachedHdriRot, cfg.hdri.exposure, cfg.hdri.flipV, cfg.render.iblSamples);
+                iblPending = false;
+            }
         }
 
         if (benchmarkN > 0 && !cpuTimes.empty()) {
@@ -839,6 +989,7 @@ int main(int argc, char** argv) {
             else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to " + benchmarkOut); }
         }
 
+        baker.destroy();
         rt.destroy();
         ssaoRt.destroy();
         blurRt.destroy();

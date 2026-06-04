@@ -8,7 +8,7 @@
 // Controlled inputs (set up in RenderHarness):
 //   vNormal=(0,0,1)  vFragPos=(0,0,0)  vUV=(0.5,0.5)
 //   uCamPos=(0,0,5) → viewDir=(0,0,1) → NdotV=1
-//   White 1×1 HDRI → irradianceIBL = reflectionIBL = (1,1,1)
+//   White 1×1 IBL maps (irradiance/prefiltered/brdfLUT) on units 3–5
 //   White albedo, flat normal map, roughness=0, metallic=0, IOR=1.5
 //   uBoundsMin=(-1,-1,-1) uBoundsMax=(1,1,1), near=0.1, far=100
 //
@@ -70,9 +70,9 @@ TEST_CASE("AOV render modes: pixel readback for all 16 view modes") {
         check(h.renderMode(9), 1.0f, 1.0f, 1.0f);
     }
 
-    SECTION("mode 10  direct_refl: fresnelWeighted(F0=0.04, NdotV=1, r=0) × white IBL") {
-        // fresnelWeighted = 0.04; byte 10/255 ≈ 0.039
-        check(h.renderMode(10), 0.039f, 0.039f, 0.039f);
+    SECTION("mode 10  direct_refl: split-sum with white test textures — Ls saturates to white") {
+        // prefiltered=(1,1,1), brdf.rg=(1,1): Ls=(1*(0.04*1+1))=1.04 → clamped to 1.0 in GL_RGB8
+        check(h.renderMode(10), 1.0f, 1.0f, 1.0f);
     }
 
     SECTION("mode 11  world_pos: (0,0,0) in [-1,1]^3 bounds → (0.5,0.5,0.5)") {

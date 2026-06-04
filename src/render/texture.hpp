@@ -18,6 +18,7 @@ public:
 
     static Texture white();
     static Texture flatNormal();
+    static Texture createEmpty(int w, int h, GLenum internalFmt, bool generateMipmaps);
 
 private:
     GLuint m_id;

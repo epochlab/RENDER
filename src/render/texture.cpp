@@ -75,6 +75,29 @@ Texture Texture::flatNormal() {
     return Texture(id);
 }
 
+Texture Texture::createEmpty(int w, int h, GLenum internalFmt, bool generateMipmaps) {
+    auto baseFmt = [](GLenum ifmt) -> GLenum {
+        if (ifmt == GL_RG16F)               return GL_RG;
+        if (ifmt == GL_DEPTH_COMPONENT32F)  return GL_DEPTH_COMPONENT;
+        return GL_RGB;
+    };
+    GLuint id;
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFmt, w, h, 0, baseFmt(internalFmt), GL_FLOAT, nullptr);
+    if (generateMipmaps) {
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    } else {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return Texture(id);
+}
+
 Texture Texture::white() {
     GLuint id;
     glGenTextures(1, &id);
