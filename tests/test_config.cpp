@@ -123,6 +123,15 @@ TEST_CASE("saveConfig round-trip persists position, focalLength, hdri.rotation")
     REQUIRE_THAT(reloaded.camera.pitch, WithinAbs(15.f, kEps));
 }
 
+TEST_CASE("Config jvec3 non-numeric elements fall back to default") {
+    std::string p = writeTmp("badpos", R"({"camera":{"position":["x","y","z"]}})");
+    AppConfig cfg = loadConfig(p, "");
+    std::remove(p.c_str());
+    REQUIRE_THAT(cfg.camera.position.x, WithinAbs(0.f,  kEps));
+    REQUIRE_THAT(cfg.camera.position.y, WithinAbs(1.f,  kEps));
+    REQUIRE_THAT(cfg.camera.position.z, WithinAbs(10.f, kEps));
+}
+
 TEST_CASE("saveConfig creates file if absent") {
     std::string path = "/tmp/kodak_test_newfile.json";
     std::remove(path.c_str());
