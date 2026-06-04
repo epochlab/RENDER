@@ -8,7 +8,7 @@ layout(location = 0) out vec2 fragColor;
 const float PI  = 3.14159265358979;
 const float PHI = 2.3999632;
 
-// Smith masking (IBL remap k=a²/2), matches pbr.frag geoSmithIBL.
+// Smith masking (IBL remap k=a²/2), matches pbr.frag geoSmithIBL. GLSL 3.30 has no #include.
 float geoSmithIBL(float NdotX, float a) {
     float k = a * a * 0.5;
     return NdotX / max(NdotX * (1.0 - k) + k, 1e-6);
