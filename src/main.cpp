@@ -253,6 +253,16 @@ int main(int argc, char** argv) {
         glBindFramebuffer(GL_FRAMEBUFFER, histFBO);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, histTex, 0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // ── Async histogram readback PBOs (double-buffered) ───────
+        GLuint histPBOs[2] = {};
+        glGenBuffers(2, histPBOs);
+        for (int i = 0; i < 2; ++i) {
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, histPBOs[i]);
+            glBufferData(GL_PIXEL_PACK_BUFFER, 256 * 144 * 3, nullptr, GL_STREAM_READ);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
         // Blur output is upsampled by the blit pass — use linear filter for smooth result.
         glBindTexture(GL_TEXTURE_2D, blurRt.tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -605,28 +615,48 @@ int main(int argc, char** argv) {
 
             glEnable(GL_DEPTH_TEST);
 
-            // ── Histogram (throttled readback every 4 frames) ─────
+            // ── Histogram (throttled readback every 4 frames, async PBO) ─────
             if (!stats.benchmarkMode) {
-                static int  histTick = 0;
+                static int     histFrames = 0;
+                static int     histTick   = 0;
                 static uint8_t histPx[256 * 144 * 3];
-                if (++histTick >= 4) {
-                    histTick = 0;
+                if (++histFrames >= 4) {
+                    histFrames = 0;
+                    const int cur  = histTick & 1;
+                    const int prev = cur ^ 1;
+
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, histFBO);
                     glBlitFramebuffer(0, 0, win.width(), win.height(),
                                       0, 0, 256, 144,
                                       GL_COLOR_BUFFER_BIT, GL_LINEAR);
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, histFBO);
-                    glReadPixels(0, 0, 256, 144, GL_RGB, GL_UNSIGNED_BYTE, histPx);
-                    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-                    uint32_t h[3][256]{};
-                    const uint8_t* p = histPx;
-                    for (int i = 0; i < 256 * 144; ++i, p += 3) {
-                        ++h[0][p[0]]; ++h[1][p[1]]; ++h[2][p[2]];
+                    glBindBuffer(GL_PIXEL_PACK_BUFFER, histPBOs[cur]);
+                    glReadPixels(0, 0, 256, 144, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+                    if (histTick > 0) {
+                        glBindBuffer(GL_PIXEL_PACK_BUFFER, histPBOs[prev]);
+                        const auto* ptr = static_cast<const uint8_t*>(
+                            glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY));
+                        if (ptr) {
+                            memcpy(histPx, ptr, sizeof(histPx));
+                            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+                        }
+                        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+                        uint32_t h[3][256]{};
+                        const uint8_t* p = histPx;
+                        for (int i = 0; i < 256 * 144; ++i, p += 3)
+                            ++h[0][p[0]], ++h[1][p[1]], ++h[2][p[2]];
+                        memcpy(stats.hist, h, sizeof(h));
+                        stats.histValid = 1;
+                    } else {
+                        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                     }
-                    memcpy(stats.hist, h, sizeof(h));
-                    stats.histValid = 1;
+                    ++histTick;
                 }
             }
 
@@ -765,9 +795,9 @@ int main(int argc, char** argv) {
                     {"ssaoBlurRadius", cfg.shading.ssaoBlurRadius},
                 }},
             };
-            std::ofstream f("benchmarks/after-step1-instrumentation.json");
-            if (!f) { LOG_E("Could not open benchmarks/after-step1-instrumentation.json for writing"); }
-            else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to benchmarks/after-step1-instrumentation.json"); }
+            std::ofstream f("benchmarks/after-step3-pbo.json");
+            if (!f) { LOG_E("Could not open benchmarks/after-step3-pbo.json for writing"); }
+            else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to benchmarks/after-step3-pbo.json"); }
         }
 
         rt.destroy();
@@ -775,6 +805,7 @@ int main(int argc, char** argv) {
         blurRt.destroy();
         glDeleteFramebuffers(1, &histFBO);
         glDeleteTextures(1, &histTex);
+        glDeleteBuffers(2, histPBOs);
         glDeleteTextures(1, &noiseTex);
         glDeleteVertexArrays(1, &blitVAO);
         glDeleteVertexArrays(1, &boxVAO);
