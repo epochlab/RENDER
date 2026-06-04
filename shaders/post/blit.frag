@@ -46,10 +46,21 @@ void main() {
                      d / (q.x + 1e-10), q.x);
     }
     // OCIO display transform — beauty pass only, log2 shaper [-10, +10 stops].
+    // LUT stores linear-light tone-mapped values (sRGB OETF removed at bake time).
     if (uLutEnabled && uViewMode == 1) {
         const float L2_MIN = -10.0, L2_MAX = 10.0;
         vec3 s = (log2(max(color, vec3(1e-10))) - L2_MIN) / (L2_MAX - L2_MIN);
         color = texture(uColorLUT, clamp(s, vec3(0.0), vec3(1.0))).rgb;
+    }
+
+    // sRGB OETF — encode linear-light beauty values for display.
+    // Covers both RAW (linear passthrough) and ACES (linear tone-mapped) paths so
+    // the display sees uniformly encoded values: RAW clips HDR to white (washed out),
+    // ACES rolls highlights off (darker, more detail).
+    if (uViewMode == 1) {
+        vec3 lo  = color * 12.92;
+        vec3 hi  = pow(max(color, vec3(0.0)), vec3(1.0 / 2.4)) * 1.055 - vec3(0.055);
+        color    = mix(lo, hi, step(vec3(0.0031308), color));
     }
 
     if      (uChannelView == 1) color = vec3(color.r);

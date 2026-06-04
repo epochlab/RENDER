@@ -52,6 +52,13 @@ void ColorPipeline::bake(ViewLut mode, int size) {
                     std::pow(2.0f, L2_MIN + (iz / (size - 1.0f)) * (L2_MAX - L2_MIN)),
                 };
                 cpu->applyRGB(pixel);
+                // Strip the sRGB OETF from the ODT output: store linear-light values so
+                // blit.frag can apply one uniform display encoding for both RAW and ACES.
+                for (int c = 0; c < 3; ++c) {
+                    float v = pixel[c];
+                    pixel[c] = (v <= 0.04045f) ? (v / 12.92f)
+                                               : std::pow((v + 0.055f) / 1.055f, 2.4f);
+                }
                 const size_t idx = (static_cast<size_t>(iz) * n * n +
                                     static_cast<size_t>(iy) * n +
                                     static_cast<size_t>(ix)) * 3;
