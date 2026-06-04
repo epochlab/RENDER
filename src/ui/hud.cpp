@@ -117,7 +117,7 @@ void HUD::draw(FrameStats& s) {
 
     ImGui::SetNextWindowPos({10.0f, 10.0f}, ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.72f);
-    ImGui::SetNextWindowSize({230.0f, 0.0f});
+    ImGui::SetNextWindowSize({260.0f, 0.0f});
 
     if (!ImGui::Begin("##hud", nullptr, flags)) { ImGui::End(); return; }
 
@@ -196,27 +196,27 @@ void HUD::draw(FrameStats& s) {
     // ── Exposure ──────────────────────────────────────────────
     sectionHeader("Exposure");
     {
-        // ISO — display as integer stops (100, 200, 400 … 12800)
+        // ISO — display value in format string (avoids SameLine overflow)
         int isoIdx = static_cast<int>(std::log2(std::max(s.camISO, 1.f) / 100.f));
         isoIdx = std::clamp(isoIdx, 0, 7);
-        if (ImGui::SliderInt("ISO", &isoIdx, 0, 7))
+        const char* isoLabels[] = {"ISO 100","ISO 200","ISO 400","ISO 800",
+                                   "ISO 1600","ISO 3200","ISO 6400","ISO 12800"};
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::SliderInt("##iso", &isoIdx, 0, 7, isoLabels[isoIdx]))
             s.camISO = 100.f * std::pow(2.f, static_cast<float>(isoIdx));
-        const int isoStops[] = {100, 200, 400, 800, 1600, 3200, 6400, 12800};
-        ImGui::SameLine();
-        ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "%d", isoStops[isoIdx]);
     }
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::SliderFloat("f-stop", &s.camFStop, 1.0f, 22.0f, "f/%.1f", ImGuiSliderFlags_Logarithmic);
     {
-        // Shutter speed slider (logarithmic, 1/8000–30 s); display as fraction when < 0.1 s
+        // Shutter speed slider (logarithmic, 1/8000–30 s)
         float shutterDisp = s.camShutterSpeed;
         ImGui::SetNextItemWidth(-1.0f);
         if (ImGui::SliderFloat("Shutter", &shutterDisp, 1.f/8000.f, 30.f, "%.5f s", ImGuiSliderFlags_Logarithmic))
             s.camShutterSpeed = shutterDisp;
         if (s.camShutterSpeed < 0.1f)
-            ImGui::SameLine(), ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "1/%.0f", 1.f / s.camShutterSpeed);
+            ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "  1/%.0f s", 1.f / s.camShutterSpeed);
         else
-            ImGui::SameLine(), ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "%.2f s", s.camShutterSpeed);
+            ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "  %.2f s", s.camShutterSpeed);
     }
     {
         // EV₁₀₀ read-out
@@ -227,15 +227,18 @@ void HUD::draw(FrameStats& s) {
 
     // ── Depth of Field ────────────────────────────────────────
     sectionHeader("Depth of Field");
-    ImGui::SetNextItemWidth(-1.0f);
-    ImGui::SliderFloat("Focus Dist", &s.camFocusDist, 0.1f, 100.f, "%.2f m", ImGuiSliderFlags_Logarithmic);
+    ImGui::Checkbox("Enable DoF", &s.camDofEnabled);
+    if (s.camDofEnabled) {
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::SliderFloat("Focus Dist", &s.camFocusDist, 0.1f, 100.f, "%.2f m", ImGuiSliderFlags_Logarithmic);
+    }
 
     // ── Aspect Ratio ──────────────────────────────────────────
     sectionHeader("Aspect Ratio");
-    {
-        const char* aspectNames[] = {"Off", "2.39:1 Scope", "1.85:1 Flat"};
+    ImGui::Checkbox("Letterbox", &s.camAspectEnabled);
+    if (s.camAspectEnabled) {
         ImGui::SetNextItemWidth(-1.0f);
-        ImGui::Combo("Guides##aspect", &s.camAspectMode, aspectNames, 3);
+        ImGui::SliderFloat("Ratio", &s.camAspectRatio, 1.0f, 4.0f, "%.2f:1");
     }
 
     // ── AOV ───────────────────────────────────────────────────
@@ -371,6 +374,8 @@ void HUD::draw(FrameStats& s) {
     sectionHeader("HDRI");
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::SliderFloat("##hdriYaw", &s.hdriYawDeg, 1.0f, 360.0f, "Y-axis  %.0f deg");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SliderFloat("Intensity", &s.hdriIntensity, 0.0f, 10.0f, "%.2f");
     ImGui::Checkbox("Flip Y-axis", &s.hdriFlipV);
     ImGui::Checkbox("Enable Background", &s.skyVisible);
 

@@ -8,6 +8,7 @@ uniform float uNear;
 uniform float uFar;
 uniform float uFocusDist;
 uniform float uCocScale;    // 0 = disable (pinhole); cocScale = imageW * focal / (fStop * filmback)
+uniform int   uDofSamples;  // 1–16 Poisson taps (quality)
 
 out vec4 FragColor;
 
@@ -54,9 +55,10 @@ void main() {
         return;
     }
 
+    int  taps  = clamp(uDofSamples, 1, TAPS);
     vec2 texel = 1.0 / vec2(textureSize(uFrame, 0));
     vec3 color = vec3(0.0);
-    for (int i = 0; i < TAPS; i++)
+    for (int i = 0; i < taps; i++)
         color += texture(uFrame, vUV + POISSON[i] * coc * texel).rgb;
-    FragColor = vec4(color / float(TAPS), 1.0);
+    FragColor = vec4(color / float(taps), 1.0);
 }

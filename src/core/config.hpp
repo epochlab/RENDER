@@ -4,9 +4,9 @@
 
 struct AppConfig {
     struct Camera {
-        glm::vec3 position   {0.f, 1.f, 10.f};
-        float     yaw        = -90.f;
-        float     pitch      =   0.f;
+        glm::vec3 position    {0.f, 1.f, 10.f};
+        float     yaw         = -90.f;
+        float     pitch       =   0.f;
         float     near        =   0.1f;
         float     far         = 100.f;
         float     filmback    =  35.f;
@@ -18,10 +18,12 @@ struct AppConfig {
     } camera;
 
     struct Render {
-        int downsample = 2;
-        int iblSamples = 16;
-        int width      = 2048;
-        int height     = 1152;
+        int  downsample = 2;
+        int  iblSamples = 16;
+        int  width      = 2048;
+        int  height     = 1152;
+        bool dofEnabled = false;
+        int  dofSamples = 16;   // Poisson disc taps (1–16)
     } render;
 
     struct Shading {
@@ -36,11 +38,12 @@ struct AppConfig {
     } shading;
 
     struct Hdri {
-        std::string path     = "assets/hdr/HDR_111_Parking_Lot_2_Env.hdr";
-        glm::vec3   rotation {};     // XYZ Euler degrees
-        bool        visible  = true;
-        float       exposure = 1.f;
-        bool        flipV    = false;
+        std::string path      = "assets/hdr/HDR_111_Parking_Lot_2_Env.hdr";
+        glm::vec3   rotation  {};      // XYZ Euler degrees
+        bool        visible   = true;
+        float       exposure  = 0.f;   // EV offset in stops applied in blit
+        float       intensity = 1.f;   // light intensity baked into IBL maps
+        bool        flipV     = false;
     } hdri;
 
     struct Scene {
@@ -52,5 +55,5 @@ struct AppConfig {
 // Returns defaults when either file is absent or a key is missing.
 AppConfig loadConfig(const std::string& profilePath, const std::string& scenePath);
 
-// Updates camera position/focal length and HDRI rotation in scenePath (read-modify-write).
-void saveConfig(const AppConfig& cfg, const std::string& scenePath);
+// Updates camera + HDRI live state in profilePath (read-modify-write).
+void saveConfig(const AppConfig& cfg, const std::string& profilePath);

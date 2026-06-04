@@ -27,7 +27,8 @@ TEST_CASE("Config defaults when paths are empty") {
     REQUIRE_THAT(cfg.camera.focalLength, WithinAbs(70.f, kEps));
     REQUIRE_THAT(cfg.camera.yaw,         WithinAbs(-90.f, kEps));
     REQUIRE(cfg.hdri.visible  == true);
-    REQUIRE_THAT(cfg.hdri.exposure, WithinAbs(1.f, kEps));
+    REQUIRE_THAT(cfg.hdri.exposure,  WithinAbs(0.f,  kEps));   // EV offset default = 0
+    REQUIRE_THAT(cfg.hdri.intensity, WithinAbs(1.f,  kEps));
 }
 
 TEST_CASE("Config profile.json overrides render and shading") {
@@ -50,14 +51,15 @@ TEST_CASE("Config profile.json overrides render and shading") {
 }
 
 TEST_CASE("Config scene.json overrides camera and HDRI") {
-    std::string s = writeTmp("scene_camera", R"({
+    // Camera and HDRI are now in profile.json, not scene.json.
+    std::string p = writeTmp("profile_camera", R"({
         "camera": {"position":[1,2,3],"yaw":-45.0,"pitch":10.0,
                    "near":0.01,"far":200.0,"filmback":56.0,"focalLength":85.0},
         "hdri":   {"path":"assets/test.hdr","rotation":[0,90,0],
-                   "visible":false,"exposure":2.0,"flipV":true}
+                   "visible":false,"exposure":2.0,"intensity":0.5,"flipV":true}
     })");
-    AppConfig cfg = loadConfig("", s);
-    std::remove(s.c_str());
+    AppConfig cfg = loadConfig(p, "");
+    std::remove(p.c_str());
 
     REQUIRE_THAT(cfg.camera.position.x, WithinAbs(1.f, kEps));
     REQUIRE_THAT(cfg.camera.position.y, WithinAbs(2.f, kEps));
@@ -70,7 +72,8 @@ TEST_CASE("Config scene.json overrides camera and HDRI") {
     REQUIRE_THAT(cfg.camera.focalLength, WithinAbs(85.f,   kEps));
     REQUIRE(cfg.hdri.path    == "assets/test.hdr");
     REQUIRE(cfg.hdri.visible == false);
-    REQUIRE_THAT(cfg.hdri.exposure,    WithinAbs(2.f,  kEps));
+    REQUIRE_THAT(cfg.hdri.exposure,   WithinAbs(2.f,  kEps));
+    REQUIRE_THAT(cfg.hdri.intensity,  WithinAbs(0.5f, kEps));
     REQUIRE_THAT(cfg.hdri.rotation.y, WithinAbs(90.f, kEps));
     REQUIRE(cfg.hdri.flipV == true);
 }
@@ -99,16 +102,16 @@ TEST_CASE("Config wrong-type field falls back per-key") {
 
 TEST_CASE("saveConfig round-trip persists position, focalLength, hdri.rotation") {
     std::string path = "/tmp/kodak_test_roundtrip.json";
-    // Seed a scene file with a camera.pitch value not written by saveConfig
+    // Seed a profile file with a camera.pitch value not written by saveConfig
     std::ofstream(path) << R"({"camera":{"pitch":15.0}})";
 
     AppConfig cfg;
     cfg.camera.position    = {4.f, 5.f, 6.f};
     cfg.camera.focalLength = 100.f;
     cfg.hdri.rotation      = {0.f, 45.f, 0.f};
-    saveConfig(cfg, path);
+    saveConfig(cfg, path);   // writes to profile.json
 
-    AppConfig reloaded = loadConfig("", path);
+    AppConfig reloaded = loadConfig(path, "");   // reads camera/hdri from profile.json
     std::remove(path.c_str());
 
     REQUIRE_THAT(reloaded.camera.position.x,  WithinAbs(4.f,   kEps));

@@ -1,28 +1,4 @@
 {
-  "camera": {
-    "position": [
-      -0.03613997995853424,
-      0.19380685687065125,
-      0.49408525228500366
-    ],
-    "yaw": -94.5,
-    "pitch": -12.0,
-    "near": 0.01,
-    "far": 20.0,
-    "filmback": 56.0,
-    "focalLength": 70.0
-  },
-  "hdri": {
-    "path": "/Users/James/Desktop/assets/hdr/HDR_111_Parking_Lot_2/HDR_111_Parking_Lot_2_Prev.jpg",
-    "exposure": 2.0,
-    "rotation": [
-      0.0,
-      0.0,
-      0.0
-    ],
-    "visible": false,
-    "flipV": false
-  },
   "scene": {
     "geometry": "/Users/James/Desktop/assets/geo/broken_stump_rkswd_ue_high/rkswd_tier_1.gltf",
     "rotation": [

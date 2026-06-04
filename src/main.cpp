@@ -321,16 +321,18 @@ int main(int argc, char** argv) {
         const GLint ssaoLocRadius       = ssaoShader.uniformLoc("uRadius");
         const GLint ssaoLocBias         = ssaoShader.uniformLoc("uBias");
 
-        const GLint blitLocViewMode     = blitShader.uniformLoc("uViewMode");
-        const GLint blitLocChannelView  = blitShader.uniformLoc("uChannelView");
-        const GLint blitLocInvert       = blitShader.uniformLoc("uInvert");
-        const GLint blitLocExposure     = blitShader.uniformLoc("uExposure");
-        const GLint blitLocAspectMode   = blitShader.uniformLoc("uAspectMode");
+        const GLint blitLocViewMode      = blitShader.uniformLoc("uViewMode");
+        const GLint blitLocChannelView   = blitShader.uniformLoc("uChannelView");
+        const GLint blitLocInvert        = blitShader.uniformLoc("uInvert");
+        const GLint blitLocExposure      = blitShader.uniformLoc("uExposure");
+        const GLint blitLocAspectEnabled = blitShader.uniformLoc("uAspectEnabled");
+        const GLint blitLocAspectRatio   = blitShader.uniformLoc("uAspectRatio");
 
         const GLint dofLocNear          = dofShader.uniformLoc("uNear");
         const GLint dofLocFar           = dofShader.uniformLoc("uFar");
         const GLint dofLocFocusDist     = dofShader.uniformLoc("uFocusDist");
         const GLint dofLocCocScale      = dofShader.uniformLoc("uCocScale");
+        const GLint dofLocSamples       = dofShader.uniformLoc("uDofSamples");
 
         const GLint lineLocVP           = lineShader.uniformLoc("uVP");
 
@@ -469,19 +471,22 @@ int main(int argc, char** argv) {
         glGenQueries(GPU_QUERY_FRAMES, gpuBlurVQueries);
 
         FrameStats stats{};
-        stats.hdriYawDeg      = cfg.hdri.rotation.y;
-        stats.hdriFlipV       = cfg.hdri.flipV;
-        stats.skyVisible      = cfg.hdri.visible;
-        stats.showPanel       = true;
-        stats.camISO          = cfg.camera.iso;
-        stats.camFStop        = cfg.camera.fStop;
-        stats.camShutterSpeed = cfg.camera.shutterSpeed;
-        stats.camFocusDist    = cfg.camera.focusDist;
+        stats.hdriYawDeg       = cfg.hdri.rotation.y;
+        stats.hdriFlipV        = cfg.hdri.flipV;
+        stats.hdriIntensity    = cfg.hdri.intensity;
+        stats.skyVisible       = cfg.hdri.visible;
+        stats.showPanel        = true;
+        stats.camISO           = cfg.camera.iso;
+        stats.camFStop         = cfg.camera.fStop;
+        stats.camShutterSpeed  = cfg.camera.shutterSpeed;
+        stats.camFocusDist     = cfg.camera.focusDist;
+        stats.camDofEnabled    = cfg.render.dofEnabled;
+        stats.camAspectEnabled = false;
+        stats.camAspectRatio   = 2.39f;
         int    viewMode    = 1;
         int    channelView = 0;   // 0=off 1=R 2=G 3=B
-        int    preLumMode  = 1;   // viewMode saved before entering luminance (mode 15)
         bool   invertColors = false;
-        struct { bool r, g, b, y, h, i; } prevKeys{};
+        struct { bool r, g, b, h, i; } prevKeys{};
         bool   prevLMB    = false;
         float  smoothFps  = 0.0f;
         double lastTime   = glfwGetTime();
@@ -556,9 +561,10 @@ int main(int argc, char** argv) {
 
         glm::vec3 cachedHdriAngles(std::numeric_limits<float>::max());
         glm::mat3 cachedHdriRot(1.f);
-        bool      cachedHdriFlipV   = false;
-        bool      hdriDirty       = false;
-        bool      iblPending = false;
+        float     cachedHdriIntensity = std::numeric_limits<float>::max();
+        bool      cachedHdriFlipV    = false;
+        bool      hdriDirty          = false;
+        bool      iblPending         = false;
 
         // ── Initial IBL bake (pre-loop so frame 1 uses correct maps) ──
         {
@@ -570,11 +576,12 @@ int main(int argc, char** argv) {
                 glm::rotate(glm::mat4(1.f), rad.z, glm::vec3(0,0,1)) *
                 glm::rotate(glm::mat4(1.f), rad.y, glm::vec3(0,1,0)) *
                 glm::rotate(glm::mat4(1.f), rad.x, glm::vec3(1,0,0)));
-            cachedHdriAngles = cfg.hdri.rotation;
-            cachedHdriFlipV  = cfg.hdri.flipV;
+            cachedHdriAngles   = cfg.hdri.rotation;
+            cachedHdriIntensity = cfg.hdri.intensity;
+            cachedHdriFlipV    = cfg.hdri.flipV;
             skyShader.use();
             skyShader.set("uHdriRotMat", cachedHdriRot);
-            baker.bake(skyTex.id(), glm::mat3(1.f), 1.0f, cfg.hdri.flipV, cfg.render.iblSamples);
+            baker.bake(skyTex.id(), glm::mat3(1.f), cfg.hdri.intensity, cfg.hdri.flipV, cfg.render.iblSamples);
         }
 
         while (!win.shouldClose()) {
@@ -582,8 +589,9 @@ int main(int argc, char** argv) {
             float  dt  = static_cast<float>(now - lastTime);
             lastTime   = now;
 
-            hdriDirty = (cfg.hdri.rotation != cachedHdriAngles
-                      || cfg.hdri.flipV    != cachedHdriFlipV);
+            hdriDirty = (cfg.hdri.rotation  != cachedHdriAngles
+                      || cfg.hdri.flipV     != cachedHdriFlipV
+                      || cfg.hdri.intensity != cachedHdriIntensity);
             if (hdriDirty) {
                 if (cfg.hdri.rotation != cachedHdriAngles) {
                     const glm::vec3 hdriRotRad(
@@ -598,6 +606,10 @@ int main(int argc, char** argv) {
                 }
                 if (cfg.hdri.flipV != cachedHdriFlipV) {
                     cachedHdriFlipV = cfg.hdri.flipV;
+                    iblPending = true;
+                }
+                if (cfg.hdri.intensity != cachedHdriIntensity) {
+                    cachedHdriIntensity = cfg.hdri.intensity;
                     iblPending = true;
                 }
             }
@@ -615,10 +627,6 @@ int main(int argc, char** argv) {
                 if (edge(GLFW_KEY_R, prevKeys.r)) channelView = (channelView == 1) ? 0 : 1;
                 if (edge(GLFW_KEY_G, prevKeys.g)) channelView = (channelView == 2) ? 0 : 2;
                 if (edge(GLFW_KEY_B, prevKeys.b)) channelView = (channelView == 3) ? 0 : 3;
-                if (edge(GLFW_KEY_Y, prevKeys.y)) {
-                    if (viewMode == 8) { viewMode = preLumMode; }
-                    else { preLumMode = viewMode; viewMode = 8; }
-                }
                 if (edge(GLFW_KEY_H, prevKeys.h)) stats.showPanel = !stats.showPanel;
                 if (edge(GLFW_KEY_I, prevKeys.i)) invertColors = !invertColors;
             }
@@ -757,7 +765,7 @@ int main(int argc, char** argv) {
                 skyShader.use();
                 skyShader.setAt(skyLocInvVP,        invVP);
                 if (hdriDirty) skyShader.setAt(skyLocHdriRotMat, hdriRotMat);
-                skyShader.setAt(skyLocHdriExposure, 1.0f);
+                skyShader.setAt(skyLocHdriExposure, cfg.hdri.intensity);
                 skyShader.setAt(skyLocHdriFlipV,    cfg.hdri.flipV);
                 skyTex.bind(0);
                 glBindVertexArray(blitVAO);
@@ -835,7 +843,8 @@ int main(int argc, char** argv) {
             blurVQueryStarted[queryWrite] = true;
 
             // ── DoF pass (CoC-based Poisson disc blur) ────────────
-            {
+            GLuint blitColorTex = rt.colorTex;  // default: passthrough
+            if (stats.camDofEnabled) {
                 glBindFramebuffer(GL_FRAMEBUFFER, dofFbo);
                 glViewport(0, 0, BASE_W, BASE_H);
                 dofShader.use();
@@ -845,10 +854,12 @@ int main(int argc, char** argv) {
                 dofShader.setAt(dofLocFar,       camera.farPlane());
                 dofShader.setAt(dofLocFocusDist, camera.focusDist());
                 dofShader.setAt(dofLocCocScale,  camera.cocScale(static_cast<float>(BASE_W)));
+                dofShader.setAt(dofLocSamples,   cfg.render.dofSamples);
                 glBindVertexArray(blitVAO);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
                 glBindVertexArray(0);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                blitColorTex = dofTex;
             }
 
             // ── Blit FBO → screen ──────────────────────────────────
@@ -864,8 +875,9 @@ int main(int argc, char** argv) {
                 float finalExposure = physExposure * std::pow(2.0f, cfg.hdri.exposure);
                 blitShader.setAt(blitLocExposure, finalExposure);
             }
-            blitShader.setAt(blitLocAspectMode, stats.camAspectMode);
-            glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, dofTex);
+            blitShader.setAt(blitLocAspectEnabled, stats.camAspectEnabled);
+            blitShader.setAt(blitLocAspectRatio,   stats.camAspectRatio);
+            glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, blitColorTex);
             glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, blurRt.tex);
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, rt.depthTex);
             glBindVertexArray(blitVAO);
@@ -961,6 +973,7 @@ int main(int argc, char** argv) {
             stats.channelView     = channelView;
             stats.hdriYawDeg      = cfg.hdri.rotation.y;
             stats.hdriFlipV       = cfg.hdri.flipV;
+            stats.hdriIntensity   = cfg.hdri.intensity;
             stats.skyVisible      = skyVisible;
             stats.numObjects      = 1;
             stats.objects[0]      = {geom.name().c_str(), geom.triangleCount(), geom.indexCount()};
@@ -1001,19 +1014,21 @@ int main(int argc, char** argv) {
             if (menuFlags.showPanel != stats.showPanel)
                 stats.showPanel = menuFlags.showPanel;
 
-            viewMode            = stats.viewMode;
-            cfg.hdri.rotation.y = stats.hdriYawDeg;
-            cfg.hdri.flipV      = stats.hdriFlipV;
-            skyVisible          = stats.skyVisible;
+            viewMode             = stats.viewMode;
+            cfg.hdri.rotation.y  = stats.hdriYawDeg;
+            cfg.hdri.flipV       = stats.hdriFlipV;
+            cfg.hdri.intensity   = stats.hdriIntensity;
+            skyVisible           = stats.skyVisible;
             camera.setFocalLength(stats.camFocalLengthMm);
             camera.setISO(stats.camISO);
             camera.setFStop(stats.camFStop);
             camera.setShutterSpeed(stats.camShutterSpeed);
             camera.setFocusDist(stats.camFocusDist);
-            cfg.camera.iso          = stats.camISO;
-            cfg.camera.fStop        = stats.camFStop;
-            cfg.camera.shutterSpeed = stats.camShutterSpeed;
-            cfg.camera.focusDist    = stats.camFocusDist;
+            cfg.camera.iso           = stats.camISO;
+            cfg.camera.fStop         = stats.camFStop;
+            cfg.camera.shutterSpeed  = stats.camShutterSpeed;
+            cfg.camera.focusDist     = stats.camFocusDist;
+            cfg.render.dofEnabled    = stats.camDofEnabled;
 
             menuFlags.showPanel = stats.showPanel;
             syncOsxMenuBar(menuFlags);
@@ -1041,7 +1056,7 @@ int main(int argc, char** argv) {
             if (stats.doSaveJson) {
                 cfg.camera.position    = camera.position();
                 cfg.camera.focalLength = camera.focalLength();
-                saveConfig(cfg, "config/scene.json");
+                saveConfig(cfg, "config/profile.json");
                 LOG_I("Scene saved.");
                 stats.doSaveJson = false;
             }
@@ -1049,7 +1064,7 @@ int main(int argc, char** argv) {
             win.swapAndPoll();
 
             if (iblPending) {
-                baker.bake(skyTex.id(), glm::mat3(1.f), 1.0f, cfg.hdri.flipV, cfg.render.iblSamples);
+                baker.bake(skyTex.id(), glm::mat3(1.f), cfg.hdri.intensity, cfg.hdri.flipV, cfg.render.iblSamples);
                 iblPending = false;
             }
         }
