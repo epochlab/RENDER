@@ -54,6 +54,7 @@ AppConfig loadConfig(const std::string& profilePath, const std::string& scenePat
         cfg.shading.ior            = jf(s.value("ior",            json(1.5f)),   cfg.shading.ior);
         cfg.shading.ssaoRadius     = jf(s.value("ssaoRadius",     json(0.5f)),   cfg.shading.ssaoRadius);
         cfg.shading.ssaoBias       = jf(s.value("ssaoBias",       json(0.025f)), cfg.shading.ssaoBias);
+        cfg.shading.ssaoSamples    = ji(s.value("ssaoSamples",    json(64)),     cfg.shading.ssaoSamples);
         cfg.shading.ssaoBlurRadius = ji(s.value("ssaoBlurRadius", json(2)),      cfg.shading.ssaoBlurRadius);
         cfg.shading.ssaoHalfRes    = jb(s.value("ssaoHalfRes",    json(false)),  cfg.shading.ssaoHalfRes);
     }

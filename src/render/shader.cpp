@@ -89,3 +89,41 @@ void Shader::set(const std::string& name, int i) const {
 void Shader::set(const std::string& name, bool b) const {
     glUniform1i(loc(name), b ? 1 : 0);
 }
+
+GLint Shader::uniformLoc(const std::string& name) const {
+    return glGetUniformLocation(m_program, name.c_str());
+}
+
+void Shader::setAt(GLint loc, const glm::mat4& m) const {
+    glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(m));
+}
+
+void Shader::setAt(GLint loc, const glm::mat3& m) const {
+    glUniformMatrix3fv(loc, 1, GL_FALSE, glm::value_ptr(m));
+}
+
+void Shader::setAt(GLint loc, const glm::vec3& v) const {
+    glUniform3fv(loc, 1, glm::value_ptr(v));
+}
+
+void Shader::setAt(GLint loc, const glm::vec2& v) const {
+    glUniform2fv(loc, 1, glm::value_ptr(v));
+}
+
+void Shader::setAt(GLint loc, float f) const {
+    glUniform1f(loc, f);
+}
+
+void Shader::setAt(GLint loc, int i) const {
+    glUniform1i(loc, i);
+}
+
+void Shader::setAt(GLint loc, bool b) const {
+    glUniform1i(loc, b ? 1 : 0);
+}
+
+void Shader::bindUniformBlock(const std::string& name, GLuint bindingPoint) const {
+    GLuint idx = glGetUniformBlockIndex(m_program, name.c_str());
+    if (idx != GL_INVALID_INDEX)
+        glUniformBlockBinding(m_program, idx, bindingPoint);
+}

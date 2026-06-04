@@ -25,10 +25,13 @@ struct RenderHarness {
     std::unique_ptr<Shader> pbrShader;   // tests/shaders/test_geom.vert + shaders/geometry/pbr.frag
     std::unique_ptr<Shader> blitShader;  // shaders/post/blit.vert + shaders/post/blit.frag
 
-    Texture albedoTex;     // unit 0 — Texture::white()
-    Texture skyTex;        // unit 1 — Texture::white() (constant-luminance HDRI)
-    Texture normalMapTex;  // unit 2 — Texture::flatNormal()
-    Texture aoTex;         // unit 1 in blit pass — Texture::white() (AO=1 everywhere)
+    Texture albedoTex;        // unit 0 — Texture::white()
+    Texture skyTex;           // unit 1 — Texture::white() (constant-luminance HDRI)
+    Texture normalMapTex;     // unit 2 — Texture::flatNormal()
+    Texture aoTex;            // unit 1 in blit pass — Texture::white() (AO=1 everywhere)
+    Texture iblIrradianceTex; // unit 3 — Texture::white()
+    Texture iblPrefilteredTex;// unit 4 — Texture::white()
+    Texture iblBrdfLutTex;    // unit 5 — Texture::white()
 
     RenderHarness();
     ~RenderHarness();

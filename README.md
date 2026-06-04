@@ -78,7 +78,7 @@ OpenGL, Cocoa, stb_image, and stb_image_write are provided by the macOS system f
 # Configure + build (includes tests_kodak binary)
 cmake --preset default && cmake --build --preset default -j
 
-# Run all 91 tests via CTest
+# Run all 92 tests via CTest
 ctest --preset default --output-on-failure
 
 # Run directly for coloured ✓ / ✗ output per test
@@ -99,6 +99,7 @@ Tests run headless — no display or GPU session required. Each test case regist
 | AOV modes | 16 | All 16 view modes verified by rendering to a 1×1 FBO and reading back the pixel |
 | SSAO math | 11 | Depth reconstruction round-trip, smoothstep range check, kernel hemisphere/determinism |
 | CPU math | 20 | EMA FPS, HDRI Euler rotation, histogram triangle kernel, sqrt normalisation, grayscale/near-binary detection, frame-time min/max |
+| SSAO blur | 1 | Separable H×V matches 2D box filter to within 2e-5 per pixel |
 
 ## Architecture
 
@@ -110,7 +111,7 @@ src/
 │   └── log.hpp             — structured logger (DEBUG/INFO/WARN/ERROR → stderr)
 ├── render/
 │   ├── window.hpp/.cpp     — GLFW window + OpenGL 3.3 Core context
-│   ├── shader.hpp/.cpp     — GLSL compile/link, uniform cache
+│   ├── shader.hpp/.cpp     — GLSL compile/link, uniform cache, pre-cached setAt() overloads
 │   ├── mesh.hpp/.cpp       — VAO/VBO/EBO geometry, bounding sphere + AABB
 │   ├── texture.hpp/.cpp    — PNG/JPG/HDR loading via stb_image (RGBA8 + RGB16F)
 │   ├── model.hpp/.cpp      — glTF 2.0 loader (cgltf), Model/SubMesh, node transform walk
@@ -122,11 +123,16 @@ src/
     └── menu_osx.hpp/.mm    — Native macOS menu bar via Cocoa (ObjC++ bridge)
 shaders/
 ├── geometry/
-│   └── pbr.vert/.frag      — MVP transform, G-buffer MRT, PBR BSDF, 16 AOV modes
+│   └── pbr.vert/.frag      — MVP transform, G-buffer MRT, PBR BSDF + IBL texture lookups, 16 AOV modes
+├── bake/
+│   ├── irradiance.frag     — Fibonacci cosine hemisphere integration → irradiance map
+│   ├── prefilter.frag      — GGX lobe integration per roughness mip → prefiltered specular map
+│   └── brdf_lut.frag       — split-sum BRDF LUT (F_scale, F_bias) per Karis 2013
 ├── post/
 │   ├── blit.vert/.frag     — fullscreen composite, SSAO multiply, channel overlay
-│   ├── ssao.vert/.frag     — SSAO compute (64-sample kernel, depth reconstruction)
-│   └── ssao_blur.frag      — 3×3 / 5×5 box blur on raw SSAO
+│   ├── ssao.vert/.frag     — SSAO compute (depth reconstruction, UBO kernel)
+│   ├── ssao_blur.frag      — separable horizontal blur pass
+│   └── ssao_blur_v.frag    — separable vertical blur pass
 ├── sky/
 │   └── sky.vert/.frag      — equirectangular HDRI skydome (rotation, exposure, flip)
 └── debug/
@@ -167,13 +173,13 @@ scene.json                  — scene content (camera, HDRI, geometry, material 
 | AOVs — Reorder, add HSV AOV, RGB histogram in HUD. 2-channel AOV support (UV/Fresnel), histogram artefact fixes (diagonal fringe, endpoint spikes), FPS graph avg overlay. | ✓ |
 | Directory Structure — domain-based layout: core/, render/, camera/, ui/ | ✓ |
 | Tests — Catch2 v3 suite, 91 tests / 571 assertions, PBR math, all 16 AOVs, SSAO, CPU math, headless GL | ✓ |
-| Performance profiling and optimisation - Frame-time breakdowns, render-path benchmarking, CPU/GPU bottleneck analysis, histogram/HUD profiling, GPU acceleration (histograms, AOV improvements, post-processing), culling, memory and buffer optimisation, asynchronous updates, OpenGL batching, and benchmark scene regression testing | planned |
-| Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ OCIO Display Transform (sRGB / Rec.709), White Balance & Kelvin-based lighting controls, | planned |
+| Performance profiling and optimisation — benchmark infrastructure, GPU query rings, async PBO readback, separable SSAO blur, IBL precomputation, SSAO kernel UBO, uniform location pre-cache: **3.2× FPS** (66→213) | ✓ |
 | Camera &  — ISO, f-stop, shutter speed, focus distance, aspect ratio | planned |
+| Color Management — OpenEXR I/O linear pipeline, OCIO ACES workflow w/ OCIO Display Transform (sRGB / Rec.709), White Balance & Kelvin-based lighting controls, | planned |
 | Rendering — Thin lens model, Physical-based spectral GPU path tracing render engine, Monte Carlo Unbiased Global Illumination (Indirect/Multiple Scattering), Correct exposure, Linear workflow, Adaptive Sampling / Multiple importance sampling (MIS), Recursive tracing, Russian roulette termination, Energy conservation, Spectral light transport, Wavelength sampling, Spectral materials, Spectral dispersion, BSDF / PBR materials, BRDF sampling + Importance Sampling, Next-event estimation, HDR IBL, Tone-mapping, Area lights, Shadows / Soft shadows, BVH acceleration, Fresnel effects, Caustics, Path throughput accumulation, Radiance estimation formulation | planned |
 | Post Lens Effects - DoF, chromatic aberration, anamorphic lenses, film grain
 | Displacement: Height map, Disp. bounds, OpenSubD | planned |
-| Geometry & Shader Library — reusable assets, camera presets, and materials files and presets, scene import/export | planned |
+| Asset Management — geometry, materials (files and presets), hdr, camera presets | planned |
 | Test Scenes — teapot, cornell box, three-sphere material test with curved backdrop | planned |
 | HUD: Waveform, AOV min/max (Depth), 2D groundplane, overlay - aspect ratio, Rule-of-Thirds grid | planned |
 | Future Features — alembic (cam and geo), background, turntable, macbeth ColorChecker, diffusion rendering, cross-platform support (NVIDIA and Apple Silicon) | planned |

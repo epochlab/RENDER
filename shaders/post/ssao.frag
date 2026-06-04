@@ -6,7 +6,8 @@ uniform sampler2D gNormal;    // view-space normals (unit 0), packed [0,1]
 uniform sampler2D gDepth;     // depth texture (unit 1)
 uniform sampler2D uNoiseTex;  // 4×4 rotation noise, GL_REPEAT (unit 2)
 
-uniform vec3  uKernel[64];
+layout(std140) uniform KernelBlock { vec4 uKernel[64]; };
+uniform int   uKernelSize;
 uniform mat4  uProj;
 uniform mat4  uInvProj;
 uniform vec2  uNoiseScale;    // framebuffer_size / 4.0
@@ -14,8 +15,6 @@ uniform float uRadius;
 uniform float uBias;
 
 out float FragAO;
-
-const int KERNEL_SIZE = 64;
 
 vec3 viewPosFromDepth(vec2 uv, float depth) {
     vec4 ndc  = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
@@ -40,8 +39,8 @@ void main() {
     int   validSamples = 0;
     float occlusion    = 0.0;
 
-    for (int i = 0; i < KERNEL_SIZE; ++i) {
-        vec3 sampleVS = fragPosVS + TBN * uKernel[i] * uRadius;
+    for (int i = 0; i < uKernelSize; ++i) {
+        vec3 sampleVS = fragPosVS + TBN * uKernel[i].xyz * uRadius;
 
         vec4 offset = uProj * vec4(sampleVS, 1.0);
         offset.xyz /= offset.w;

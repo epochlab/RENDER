@@ -7,38 +7,37 @@ in vec3 vFragPos;
 in vec2 vUV;
 
 uniform sampler2D uAlbedo;
-uniform sampler2D uSkyHDR;     // equirectangular HDRI for diffuse irradiance
-uniform sampler2D uNormalMap;  // tangent-space normal map (unit 2)
-uniform int       uViewMode;   // 1=beauty  2=alpha  3=bounds  4=wireframe  5=depth
-                               // 6=albedo  7=hsv  8=luminance  9=direct_diffuse  10=direct_refl
-                               // 11=world_pos  12=world_normals  13=uv  14=shading_normal
-                               // 15=fresnel  16=occlusion
-uniform vec3      uBoundsMin;  // world-space AABB min corner
-uniform vec3      uBoundsMax;  // world-space AABB max corner
+uniform sampler2D uNormalMap;      // tangent-space normal map (unit 2)
+uniform sampler2D uIrradianceTex;  // baked diffuse irradiance map (unit 3)
+uniform sampler2D uPrefilteredTex; // baked GGX prefiltered env map (unit 4)
+uniform sampler2D uBrdfLUT;        // split-sum BRDF LUT (unit 5)
+uniform float     uMaxMipLevel;    // = 4.0 (prefilter mip count - 1)
+uniform int       uViewMode;       // 1=beauty  2=alpha  3=bounds  4=wireframe  5=depth
+                                   // 6=albedo  7=hsv  8=luminance  9=direct_diffuse  10=direct_refl
+                                   // 11=world_pos  12=world_normals  13=uv  14=shading_normal
+                                   // 15=fresnel  16=occlusion
+uniform vec3      uBoundsMin;      // world-space AABB min corner
+uniform vec3      uBoundsMax;      // world-space AABB max corner
 uniform float     uNear;
 uniform float     uFar;
-uniform float     uHdriExposure;
-uniform mat3      uHdriRotMat; // pre-built XYZ Euler rotation — must match sky shader
-uniform bool      uHdriFlipV;  // flip panorama vertically — must match sky shader
-uniform int       uIblSamples; // hemisphere sample count (profile.json render.iblSamples)
-uniform vec3      uCamPos;     // world-space camera position (for reflection vector)
-uniform float     uRoughness;  // PBR roughness: 0 = mirror, 1 = fully diffuse
-uniform float     uMetallic;  // 0 = dielectric, 1 = metal
-uniform float     uIOR;       // index of refraction for dielectrics (default 1.5)
-uniform mat4      uView;       // view matrix — used to transform shading normal for SSAO
+uniform vec3      uCamPos;         // world-space camera position (for reflection vector)
+uniform float     uRoughness;      // PBR roughness: 0 = mirror, 1 = fully diffuse
+uniform float     uMetallic;       // 0 = dielectric, 1 = metal
+uniform float     uIOR;            // index of refraction for dielectrics (default 1.5)
+uniform mat4      uView;           // view matrix — used to transform shading normal for SSAO
+uniform mat3      uHdriRotMat;     // HDRI rotation applied per-frame; flip/exposure are baked
 
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gNormal;  // view-space shading normals for SSAO
 
-const float PI  = 3.14159265358979;
-const float PHI = 2.3999632;  // golden angle = 2π/φ²
+const float PI = 3.14159265358979;
 
-vec3 sampleEnvDir(vec3 dir) {
+// Convert world direction to equirectangular UV. Rotation is per-frame; flip/exposure are baked.
+vec2 sampleEnvUV(vec3 dir) {
     dir = uHdriRotMat * dir;
     float phi   = atan(dir.z, dir.x);
     float theta = acos(clamp(dir.y, -1.0, 1.0));
-    float v     = uHdriFlipV ? theta / PI : 1.0 - theta / PI;
-    return texture(uSkyHDR, vec2(phi / (2.0 * PI) + 0.5, v)).rgb * uHdriExposure;
+    return vec2(phi / (2.0 * PI) + 0.5, 1.0 - theta / PI);
 }
 
 // TBN-perturbed shading normal from normal map.
@@ -46,53 +45,6 @@ vec3 shadingNormal() {
     vec3 nts = texture(uNormalMap, vUV).rgb * 2.0 - 1.0;
     mat3 TBN = mat3(normalize(vTangent), normalize(vBitangent), normalize(vNormal));
     return normalize(TBN * nts);
-}
-
-// Cosine-weighted Fibonacci hemisphere integration (Lambertian irradiance).
-// roughness modulates the cosine distribution: 1.0 = standard Lambertian.
-vec3 irradianceIBL(vec3 n, float roughness) {
-    vec3 up        = abs(n.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent   = normalize(cross(up, n));
-    vec3 bitangent = cross(n, tangent);
-
-    float exponent  = 0.5 + 0.5 * clamp(roughness, 0.0, 1.0);
-    vec3 acc = vec3(0.0);
-    for (int i = 0; i < uIblSamples; i++) {
-        float u        = (float(i) + 0.5) / float(uIblSamples);
-        float cosTheta = pow(1.0 - u, exponent);
-        float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-        float phi      = PHI * float(i);
-        vec3  local    = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
-        vec3  world    = local.x * tangent + local.y * bitangent + local.z * n;
-        acc += sampleEnvDir(world);
-    }
-    return acc / float(uIblSamples);
-}
-
-// GGX-lobe IBL for specular reflection.
-// roughness=0 → perfect mirror. roughness=1 → cosine-weighted hemisphere on the surface
-// normal (= diffuse irradiance). Lobe centre shifts from reflect dir to normal as a=r² grows.
-vec3 reflectionIBL(vec3 n, vec3 v, float roughness) {
-    roughness = clamp(roughness, 0.0, 1.0);
-    float a   = roughness * roughness;
-    vec3  r   = reflect(-v, n);
-    // Shift lobe centre: reflection dir at roughness=0, surface normal at roughness=1.
-    vec3  dir = normalize(mix(r, n, a));
-    vec3  up  = abs(dir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-    vec3  T   = normalize(cross(up, dir));
-    vec3  B   = cross(dir, T);
-
-    vec3 acc = vec3(0.0);
-    for (int i = 0; i < uIblSamples; i++) {
-        float u     = (float(i) + 0.5) / float(uIblSamples);
-        float phi   = PHI * float(i);
-        float denom = max(1.0 + (a * a - 1.0) * u, 1e-6);
-        float cosT  = sqrt((1.0 - u) / denom);
-        float sinT  = sqrt(max(0.0, 1.0 - cosT * cosT));
-        vec3  local = vec3(sinT * cos(phi), sinT * sin(phi), cosT);
-        acc += sampleEnvDir(normalize(T * local.x + B * local.y + dir * local.z));
-    }
-    return acc / float(uIblSamples);
 }
 
 // IOR must be > 1 for a real interface; IOR=1 → F0=0 → no reflection at any angle.
@@ -143,19 +95,23 @@ void main() {
         gColor = vec4(texture(uAlbedo, vUV).rgb, 1.0);
 
     } else if (uViewMode == 9) {
-        // direct_diffuse — full irradiance, no albedo, no Fresnel mask
-        gColor = vec4(irradianceIBL(shadingNormal(), uRoughness), 1.0);
+        // direct_diffuse — precomputed irradiance, no albedo, no Fresnel mask
+        gColor = vec4(texture(uIrradianceTex, sampleEnvUV(shadingNormal())).rgb, 1.0);
 
     } else if (uViewMode == 10) {
-        // direct_refl — geometry-attenuated Fresnel specular lobe
+        // direct_refl — prefiltered specular with lobe-centre shift (matches pre-Step-5 reflectionIBL)
         vec3  n       = shadingNormal();
         vec3  viewDir = normalize(uCamPos - vFragPos);
         float NoV     = max(dot(n, viewDir), 0.0);
         vec3  albedo  = texture(uAlbedo, vUV).rgb;
         float f0Dia   = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
         vec3  F0      = mix(vec3(f0Dia), albedo, uMetallic);
-        vec3  F       = fresnelWeighted(F0, NoV, uRoughness);
-        gColor = vec4(F * reflectionIBL(n, viewDir, uRoughness), 1.0);
+        float a_sq        = uRoughness * uRoughness;
+        vec3  r           = reflect(-viewDir, n);
+        vec3  dir         = normalize(mix(r, n, a_sq));
+        vec3  prefiltered = textureLod(uPrefilteredTex, sampleEnvUV(dir), uRoughness * uMaxMipLevel).rgb;
+        vec3  F           = fresnelWeighted(F0, NoV, uRoughness);
+        gColor = vec4(F * prefiltered, 1.0);
 
     } else if (uViewMode == 11) {
         // world_pos — normalized against scene AABB for a continuous colour gradient
@@ -195,8 +151,12 @@ void main() {
         float f0Dielectric = pow((uIOR - 1.0) / (uIOR + 1.0), 2.0);
         vec3  F0           = mix(vec3(f0Dielectric), albedo, uMetallic);
         vec3  F            = fresnelWeighted(F0, NoV, uRoughness);
-        vec3  Ld = albedo * (1.0 - F) * (1.0 - uMetallic) * irradianceIBL(n, uRoughness);
-        vec3  Ls = F * reflectionIBL(n, viewDir, uRoughness);
-        gColor   = vec4(Ld + Ls, 1.0);
+        vec3  Ld = albedo * (1.0 - F) * (1.0 - uMetallic) * texture(uIrradianceTex, sampleEnvUV(n)).rgb;
+        float a_sq         = uRoughness * uRoughness;
+        vec3  r            = reflect(-viewDir, n);
+        vec3  dir          = normalize(mix(r, n, a_sq));
+        vec3  prefiltered  = textureLod(uPrefilteredTex, sampleEnvUV(dir), uRoughness * uMaxMipLevel).rgb;
+        vec3  Ls           = F * prefiltered;
+        gColor = vec4(Ld + Ls, 1.0);
     }
 }

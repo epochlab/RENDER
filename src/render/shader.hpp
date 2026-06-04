@@ -20,6 +20,17 @@ public:
     void set(const std::string& name, float f) const;
     void set(const std::string& name, int i) const;
     void set(const std::string& name, bool b) const;
+    void bindUniformBlock(const std::string& name, GLuint bindingPoint) const;
+
+    GLint uniformLoc(const std::string& name) const;
+
+    void setAt(GLint loc, const glm::mat4& m) const;
+    void setAt(GLint loc, const glm::mat3& m) const;
+    void setAt(GLint loc, const glm::vec3& v) const;
+    void setAt(GLint loc, const glm::vec2& v) const;
+    void setAt(GLint loc, float f) const;
+    void setAt(GLint loc, int i) const;
+    void setAt(GLint loc, bool b) const;
 
 private:
     GLuint m_program;

@@ -126,6 +126,7 @@ add_executable(tests_kodak
     tests/test_aov.cpp
     tests/test_ssao_math.cpp
     tests/test_cpu_math.cpp
+    tests/test_ssao_blur.cpp
 )
 target_include_directories(tests_kodak PRIVATE tests)
 target_link_libraries(tests_kodak PRIVATE kodak_core Catch2::Catch2WithMain)

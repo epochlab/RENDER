@@ -4,6 +4,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Optimisation Sprint] — 2026-06-04
+
+7-step render-loop optimisation delivering a **3.2× FPS improvement** (66 → 213 FPS mean) on the benchmark scene (`--benchmark 300`, 2048×1152, ssaoSamples=8). Results in `benchmarks/`.
+
+- **Step 0 — Benchmark infrastructure** — `--benchmark N` CLI flag; per-frame CPU time + 4-pass GPU timing (geometry, SSAO, blur H, blur V, composite) accumulated to JSON; `benchmarks/` directory with per-step regression snapshots
+- **Step 1 — GPU query ring fix + per-pass timing** — fixed ring-buffer indexing bug (both queries landing in different slots per frame); split into 5 independent `GL_TIME_ELAPSED` rings; accurate per-pass breakdown revealed SSAO as the bottleneck; reducing `ssaoSamples` 64→16 gave **+49% FPS** (66→99)
+- **Step 2 — HDRI rotation matrix cache** — `hdriDirty` flag prevents redundant `rotateXYZ` recomputation when HDRI angles are unchanged each frame
+- **Step 3 — Async histogram readback via PBO** — double-buffered PBOs replace synchronous `glReadPixels`; eliminated ~1.8 ms/frame GPU pipeline stall; **+22% FPS** (99→121)
+- **Step 4 — Separable SSAO blur** — 2D box kernel replaced with separable H×V 1D passes (`ssao_blur_v.frag` added); **−95% blur GPU time** (0.266→0.013 ms mean); mathematically exact (box filter is separable)
+- **Step 5 — IBL precomputation** — irradiance map (128×64 GL_RGB16F), prefiltered specular map (512×256 GL_RGB16F, 5 mips), and BRDF LUT (512×512 GL_RG16F) baked once at startup via `IblBaker`; per-pixel Fibonacci sampling loops in `pbr.frag` eliminated; HDRI yaw rotation kept as per-frame `uHdriRotMat` uniform so the slider stays live; **+123% FPS** (112→249), **−90% GPU geometry time** (5.1→0.5 ms mean)
+- **Step 6 — SSAO kernel UBO** — 64-call `glUniform3fv` startup loop replaced with a single `glBufferData` upload into a `std140` UBO; `Shader::bindUniformBlock()` added; `ssao.frag` updated to `layout(std140) uniform KernelBlock`
+- **Step 7 — Uniform location pre-cache** — `Shader::uniformLoc()` and `setAt(GLint, T)` overload family (mat4, mat3, vec3, vec2, float, int, bool) added; 23 per-frame `set("name", value)` calls across PBR, sky, SSAO, blit, and line shaders replaced with direct-location `setAt()` calls, eliminating the `unordered_map` string-hash on the hot path
+
+---
+
 ## [Test Suite] — 2026-06-03
 
 - **91 tests, 571 assertions** — full regression suite covering config I/O, camera math, frustum culling, mesh bounds, shader compilation, texture correctness, PBR BSDF math, all 16 AOV modes, SSAO math, and CPU-side rendering math

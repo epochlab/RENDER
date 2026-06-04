@@ -13,6 +13,10 @@
 #include <cfloat>
 #include <cstring>
 #include <ctime>
+#include <algorithm>
+#include <fstream>
+#include <numeric>
+#include <string_view>
 #include "window.hpp"
 #include "shader.hpp"
 #include "camera.hpp"
@@ -22,6 +26,7 @@
 #include "model.hpp"
 #include "config.hpp"
 #include "log.hpp"
+#include <nlohmann/json.hpp>
 #include "ssao_kernel.hpp"
 
 static Camera* g_camera = nullptr;
@@ -112,7 +117,125 @@ struct SsaoTarget {
     }
 };
 
-int main() {
+// ── IBL precomputation baker ──────────────────────────────────────────────────
+struct IblBaker {
+    GLuint irradianceTex  = 0;   // GL_RGB16F 128×64
+    GLuint prefilteredTex = 0;   // GL_RGB16F 512×256, 5 mip levels
+    GLuint brdfLUT        = 0;   // GL_RG16F  512×512
+    GLuint fbo            = 0;
+    std::unique_ptr<Shader> irrShader;
+    std::unique_ptr<Shader> prefilterShader;
+    std::unique_ptr<Shader> brdfShader;
+    bool brdfReady = false;
+
+    static GLuint makeFloatTex(int w, int h, GLenum internalFmt, bool mipmaps) {
+        GLenum baseFmt = (internalFmt == GL_RG16F) ? GL_RG : GL_RGB;
+        GLuint id;
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFmt, w, h, 0, baseFmt, GL_FLOAT, nullptr);
+        if (mipmaps) {
+            glGenerateMipmap(GL_TEXTURE_2D);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        } else {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return id;
+    }
+
+    void create() {
+        irrShader       = std::make_unique<Shader>("shaders/post/blit.vert", "shaders/bake/irradiance.frag");
+        prefilterShader = std::make_unique<Shader>("shaders/post/blit.vert", "shaders/bake/prefilter.frag");
+        brdfShader      = std::make_unique<Shader>("shaders/post/blit.vert", "shaders/bake/brdf_lut.frag");
+        irradianceTex  = makeFloatTex(128, 64,  GL_RGB16F, false);
+        prefilteredTex = makeFloatTex(512, 256, GL_RGB16F, true);
+        brdfLUT        = makeFloatTex(512, 512, GL_RG16F,  false);
+        glGenFramebuffers(1, &fbo);
+    }
+
+    void bake(GLuint hdriTexId, const glm::mat3& rot, float exposure, bool flipV, int samples) {
+        GLuint bakVAO = 0;
+        glGenVertexArrays(1, &bakVAO);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glDisable(GL_DEPTH_TEST);
+
+        // ── BRDF LUT (view-independent, baked once) ───────────────────
+        if (!brdfReady) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfLUT, 0);
+            glViewport(0, 0, 512, 512);
+            brdfShader->use();
+            brdfShader->set("uSamples", samples);
+            glBindVertexArray(bakVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            brdfReady = true;
+        }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, hdriTexId);
+
+        // ── Irradiance map ────────────────────────────────────────────
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, irradianceTex, 0);
+        glViewport(0, 0, 128, 64);
+        irrShader->use();
+        irrShader->set("uHdriTex",      0);
+        irrShader->set("uHdriRotMat",   rot);
+        irrShader->set("uHdriExposure", exposure);
+        irrShader->set("uHdriFlipV",    flipV);
+        irrShader->set("uSamples",      samples);
+        glBindVertexArray(bakVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        // ── Prefiltered specular (5 mip levels) ───────────────────────
+        prefilterShader->use();
+        prefilterShader->set("uHdriTex",      0);
+        prefilterShader->set("uHdriRotMat",   rot);
+        prefilterShader->set("uHdriExposure", exposure);
+        prefilterShader->set("uHdriFlipV",    flipV);
+        prefilterShader->set("uSamples",      samples);
+        for (int mip = 0; mip < 5; ++mip) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prefilteredTex, mip);
+            glViewport(0, 0, 512 >> mip, 256 >> mip);
+            prefilterShader->set("uRoughness", static_cast<float>(mip) / 4.0f);
+            glBindVertexArray(bakVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDeleteVertexArrays(1, &bakVAO);
+        glFinish();
+    }
+
+    void destroy() {
+        irrShader.reset();
+        prefilterShader.reset();
+        brdfShader.reset();
+        if (fbo)            { glDeleteFramebuffers(1, &fbo);        fbo           = 0; }
+        if (irradianceTex)  { glDeleteTextures(1, &irradianceTex);  irradianceTex = 0; }
+        if (prefilteredTex) { glDeleteTextures(1, &prefilteredTex); prefilteredTex = 0; }
+        if (brdfLUT)        { glDeleteTextures(1, &brdfLUT);        brdfLUT       = 0; }
+    }
+};
+
+int main(int argc, char** argv) {
+    int         benchmarkN   = 0;
+    std::string benchmarkOut;
+    for (int i = 1; i < argc; ++i) {
+        std::string_view arg(argv[i]);
+        if (arg == "--benchmark" && i + 1 < argc) {
+            char* end = nullptr;
+            long v = std::strtol(argv[++i], &end, 10);
+            if (end == argv[i] || *end != '\0' || v <= 0)
+                { fprintf(stderr, "Usage: --benchmark <N> [--output <file>]\n"); return 1; }
+            benchmarkN = static_cast<int>(v);
+        } else if (arg == "--output" && i + 1 < argc) {
+            benchmarkOut = argv[++i];
+        }
+    }
+
     try {
         constexpr int FRAME_CAP = 0;  // 0 = vsync/unlimited
 
@@ -135,10 +258,12 @@ int main() {
         // ── Shaders ────────────────────────────────────────────────
         Shader shader("shaders/geometry/pbr.vert", "shaders/geometry/pbr.frag");
         shader.use();
-        shader.set("uAlbedo",     0);
-        shader.set("uSkyHDR",     1);
-        shader.set("uNormalMap",  2);
-        shader.set("uIblSamples", cfg.render.iblSamples);
+        shader.set("uAlbedo",        0);
+        shader.set("uNormalMap",     2);
+        shader.set("uIrradianceTex", 3);
+        shader.set("uPrefilteredTex",4);
+        shader.set("uBrdfLUT",       5);
+        shader.set("uMaxMipLevel",   4.0f);
 
         Shader blitShader("shaders/post/blit.vert", "shaders/post/blit.frag");
         blitShader.use();
@@ -158,10 +283,44 @@ int main() {
 
         Shader blurShader("shaders/post/ssao.vert", "shaders/post/ssao_blur.frag");
         blurShader.use();
-        blurShader.set("uSSAO",        0);
-        blurShader.set("uBlurRadius",  cfg.shading.ssaoBlurRadius);
+        blurShader.set("uSSAO",       0);
+        blurShader.set("uBlurRadius", cfg.shading.ssaoBlurRadius);
+
+        Shader blurVShader("shaders/post/ssao.vert", "shaders/post/ssao_blur_v.frag");
+        blurVShader.use();
+        blurVShader.set("uSSAO",       0);
+        blurVShader.set("uBlurRadius", cfg.shading.ssaoBlurRadius);
 
         Shader lineShader("shaders/debug/bounds.vert", "shaders/debug/bounds.frag");
+
+        // ── Pre-cached per-frame uniform locations ─────────────────
+        const GLint pbrLocView          = shader.uniformLoc("uView");
+        const GLint pbrLocProjection    = shader.uniformLoc("uProjection");
+        const GLint pbrLocViewMode      = shader.uniformLoc("uViewMode");
+        const GLint pbrLocNear          = shader.uniformLoc("uNear");
+        const GLint pbrLocFar           = shader.uniformLoc("uFar");
+        const GLint pbrLocCamPos        = shader.uniformLoc("uCamPos");
+        const GLint pbrLocRoughness     = shader.uniformLoc("uRoughness");
+        const GLint pbrLocMetallic      = shader.uniformLoc("uMetallic");
+        const GLint pbrLocIOR           = shader.uniformLoc("uIOR");
+        const GLint pbrLocNormalMatrix  = shader.uniformLoc("uNormalMatrix");
+        const GLint pbrLocHdriRotMat    = shader.uniformLoc("uHdriRotMat");
+
+        const GLint skyLocInvVP         = skyShader.uniformLoc("uInvVP");
+        const GLint skyLocHdriRotMat    = skyShader.uniformLoc("uHdriRotMat");
+        const GLint skyLocHdriExposure  = skyShader.uniformLoc("uHdriExposure");
+        const GLint skyLocHdriFlipV     = skyShader.uniformLoc("uHdriFlipV");
+
+        const GLint ssaoLocProj         = ssaoShader.uniformLoc("uProj");
+        const GLint ssaoLocInvProj      = ssaoShader.uniformLoc("uInvProj");
+        const GLint ssaoLocRadius       = ssaoShader.uniformLoc("uRadius");
+        const GLint ssaoLocBias         = ssaoShader.uniformLoc("uBias");
+
+        const GLint blitLocViewMode     = blitShader.uniformLoc("uViewMode");
+        const GLint blitLocChannelView  = blitShader.uniformLoc("uChannelView");
+        const GLint blitLocInvert       = blitShader.uniformLoc("uInvert");
+
+        const GLint lineLocVP           = lineShader.uniformLoc("uVP");
 
         // ── Camera ─────────────────────────────────────────────────
         Camera camera(cfg.camera.position, win.aspectRatio(),
@@ -188,7 +347,7 @@ int main() {
         LOG_I("HDRI: " + cfg.hdri.path);
 
         // ── SSAO kernel (deterministic, seed 42) ───────────────────
-        std::vector<glm::vec3> ssaoKernel = generateSSAOKernel(42);
+        std::vector<glm::vec3> ssaoKernel = generateSSAOKernel(42, cfg.shading.ssaoSamples);
 
         // ── SSAO noise texture (4×4, GL_REPEAT) — seed 43 ─────────
         std::mt19937 rng(43);
@@ -207,10 +366,21 @@ int main() {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        // Pass kernel to SSAO shader once at startup.
+        // Pack vec3 kernel into vec4 (std140 pads vec3 → vec4).
+        std::vector<glm::vec4> kernelPadded(64, glm::vec4(0.f));
+        for (int i = 0; i < cfg.shading.ssaoSamples; ++i)
+            kernelPadded[i] = glm::vec4(ssaoKernel[i], 0.f);
+
+        GLuint ssaoKernelUBO;
+        glGenBuffers(1, &ssaoKernelUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, ssaoKernelUBO);
+        glBufferData(GL_UNIFORM_BUFFER, 64 * sizeof(glm::vec4), kernelPadded.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, ssaoKernelUBO);
+        ssaoShader.bindUniformBlock("KernelBlock", 0);
+
         ssaoShader.use();
-        for (int i = 0; i < 64; ++i)
-            ssaoShader.set("uKernel[" + std::to_string(i) + "]", ssaoKernel[i]);
+        ssaoShader.set("uKernelSize", cfg.shading.ssaoSamples);
         ssaoShader.set("uNoiseScale", glm::vec2(AO_W / 4.0f, AO_H / 4.0f));
 
         // ── Empty VAO for fullscreen draws (gl_VertexID-driven) ────
@@ -218,11 +388,15 @@ int main() {
         glGenVertexArrays(1, &blitVAO);
 
         RenderTarget rt{};
-        SsaoTarget   ssaoRt{}, blurRt{};
+        SsaoTarget   ssaoRt{}, blurRt{}, blurTmpRt{};
 
         rt.create(BASE_W, BASE_H);
         ssaoRt.create(AO_W, AO_H);
         blurRt.create(AO_W, AO_H);
+        blurTmpRt.create(AO_W, AO_H);
+
+        IblBaker baker;
+        baker.create();
 
         // ── Histogram readback target (256×144 RGB8, fixed size) ──────
         GLuint histFBO = 0, histTex = 0;
@@ -236,19 +410,34 @@ int main() {
         glBindFramebuffer(GL_FRAMEBUFFER, histFBO);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, histTex, 0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // ── Async histogram readback PBOs (double-buffered) ───────
+        GLuint histPBOs[2] = {};
+        glGenBuffers(2, histPBOs);
+        for (int i = 0; i < 2; ++i) {
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, histPBOs[i]);
+            glBufferData(GL_PIXEL_PACK_BUFFER, 256 * 144 * 3, nullptr, GL_STREAM_READ);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
         // Blur output is upsampled by the blit pass — use linear filter for smooth result.
         glBindTexture(GL_TEXTURE_2D, blurRt.tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        // ── GPU timer rings (geometry pass + SSAO/blit pass) ──────
+        // ── GPU timer rings (geometry, SSAO, blur, composite) ─────
         constexpr int GPU_QUERY_FRAMES = 3;
         GLuint gpuQueries[GPU_QUERY_FRAMES],     gpuPostQueries[GPU_QUERY_FRAMES];
-        bool   queryStarted[GPU_QUERY_FRAMES]{}, postQueryStarted[GPU_QUERY_FRAMES]{};
+        GLuint gpuSsaoQueries[GPU_QUERY_FRAMES], gpuBlurQueries[GPU_QUERY_FRAMES], gpuBlurVQueries[GPU_QUERY_FRAMES];
+        bool   queryStarted[GPU_QUERY_FRAMES]{},     postQueryStarted[GPU_QUERY_FRAMES]{};
+        bool   ssaoQueryStarted[GPU_QUERY_FRAMES]{}, blurQueryStarted[GPU_QUERY_FRAMES]{}, blurVQueryStarted[GPU_QUERY_FRAMES]{};
         int    queryWrite = 0;
         glGenQueries(GPU_QUERY_FRAMES, gpuQueries);
         glGenQueries(GPU_QUERY_FRAMES, gpuPostQueries);
+        glGenQueries(GPU_QUERY_FRAMES, gpuSsaoQueries);
+        glGenQueries(GPU_QUERY_FRAMES, gpuBlurQueries);
+        glGenQueries(GPU_QUERY_FRAMES, gpuBlurVQueries);
 
         FrameStats stats{};
         stats.hdriYawDeg = cfg.hdri.rotation.y;
@@ -263,6 +452,16 @@ int main() {
         bool   prevLMB    = false;
         float  smoothFps  = 0.0f;
         double lastTime   = glfwGetTime();
+
+        std::vector<float> cpuTimes, gpuGeomTimes, gpuSsaoTimes, gpuBlurTimes, gpuPostTimes;
+        if (benchmarkN > 0) {
+            cpuTimes.reserve(benchmarkN);
+            gpuGeomTimes.reserve(benchmarkN);
+            gpuSsaoTimes.reserve(benchmarkN);
+            gpuBlurTimes.reserve(benchmarkN);
+            gpuPostTimes.reserve(benchmarkN);
+            stats.benchmarkMode = true;
+        }
 
         bool skyVisible = cfg.hdri.visible;
 
@@ -322,19 +521,58 @@ int main() {
         glEnableVertexAttribArray(0);
         glBindVertexArray(0);
 
+        glm::vec3 cachedHdriAngles(std::numeric_limits<float>::max());
+        glm::mat3 cachedHdriRot(1.f);
+        float     cachedHdriExposure = std::numeric_limits<float>::max();
+        bool      cachedHdriFlipV   = false;
+        bool      hdriDirty       = false;
+        bool      iblPending = false;
+
+        // ── Initial IBL bake (pre-loop so frame 1 uses correct maps) ──
+        {
+            const glm::vec3 rad(
+                glm::radians(cfg.hdri.rotation.x),
+                glm::radians(cfg.hdri.rotation.y),
+                glm::radians(cfg.hdri.rotation.z));
+            cachedHdriRot = glm::mat3(
+                glm::rotate(glm::mat4(1.f), rad.z, glm::vec3(0,0,1)) *
+                glm::rotate(glm::mat4(1.f), rad.y, glm::vec3(0,1,0)) *
+                glm::rotate(glm::mat4(1.f), rad.x, glm::vec3(1,0,0)));
+            cachedHdriAngles   = cfg.hdri.rotation;
+            cachedHdriExposure = cfg.hdri.exposure;
+            cachedHdriFlipV    = cfg.hdri.flipV;
+            skyShader.use();
+            skyShader.set("uHdriRotMat", cachedHdriRot);
+            baker.bake(skyTex.id(), glm::mat3(1.f), cfg.hdri.exposure, cfg.hdri.flipV, cfg.render.iblSamples);
+        }
+
         while (!win.shouldClose()) {
             double now = glfwGetTime();
             float  dt  = static_cast<float>(now - lastTime);
             lastTime   = now;
 
-            const glm::vec3 hdriRotRad(
-                glm::radians(cfg.hdri.rotation.x),
-                glm::radians(cfg.hdri.rotation.y),
-                glm::radians(cfg.hdri.rotation.z));
-            const glm::mat3 hdriRotMat = glm::mat3(
-                glm::rotate(glm::mat4(1.f), hdriRotRad.z, glm::vec3(0,0,1)) *
-                glm::rotate(glm::mat4(1.f), hdriRotRad.y, glm::vec3(0,1,0)) *
-                glm::rotate(glm::mat4(1.f), hdriRotRad.x, glm::vec3(1,0,0)));
+            hdriDirty = (cfg.hdri.rotation != cachedHdriAngles
+                      || cfg.hdri.exposure != cachedHdriExposure
+                      || cfg.hdri.flipV    != cachedHdriFlipV);
+            if (hdriDirty) {
+                if (cfg.hdri.rotation != cachedHdriAngles) {
+                    const glm::vec3 hdriRotRad(
+                        glm::radians(cfg.hdri.rotation.x),
+                        glm::radians(cfg.hdri.rotation.y),
+                        glm::radians(cfg.hdri.rotation.z));
+                    cachedHdriRot = glm::mat3(
+                        glm::rotate(glm::mat4(1.f), hdriRotRad.z, glm::vec3(0,0,1)) *
+                        glm::rotate(glm::mat4(1.f), hdriRotRad.y, glm::vec3(0,1,0)) *
+                        glm::rotate(glm::mat4(1.f), hdriRotRad.x, glm::vec3(1,0,0)));
+                    cachedHdriAngles = cfg.hdri.rotation;
+                }
+                bool nonRotDirty = (cfg.hdri.exposure != cachedHdriExposure
+                                 || cfg.hdri.flipV    != cachedHdriFlipV);
+                cachedHdriExposure = cfg.hdri.exposure;
+                cachedHdriFlipV    = cfg.hdri.flipV;
+                if (nonRotDirty) iblPending = true;
+            }
+            const glm::mat3& hdriRotMat = cachedHdriRot;
 
             if (glfwGetKey(win.handle(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
                 glfwSetWindowShouldClose(win.handle(), GLFW_TRUE);
@@ -402,6 +640,37 @@ int main() {
                     stats.gpuGeomMs = static_cast<float>(ns) / 1e6f;
                 }
             }
+            if (ssaoQueryStarted[queryWrite]) {
+                GLint available = 0;
+                glGetQueryObjectiv(gpuSsaoQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
+                if (available) {
+                    GLuint ns = 0;
+                    glGetQueryObjectuiv(gpuSsaoQueries[queryWrite], GL_QUERY_RESULT, &ns);
+                    stats.gpuSsaoMs = static_cast<float>(ns) / 1e6f;
+                }
+            }
+            {
+                float hMs = 0.0f, vMs = 0.0f;
+                if (blurQueryStarted[queryWrite]) {
+                    GLint available = 0;
+                    glGetQueryObjectiv(gpuBlurQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
+                    if (available) {
+                        GLuint ns = 0;
+                        glGetQueryObjectuiv(gpuBlurQueries[queryWrite], GL_QUERY_RESULT, &ns);
+                        hMs = static_cast<float>(ns) / 1e6f;
+                    }
+                }
+                if (blurVQueryStarted[queryWrite]) {
+                    GLint available = 0;
+                    glGetQueryObjectiv(gpuBlurVQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
+                    if (available) {
+                        GLuint ns = 0;
+                        glGetQueryObjectuiv(gpuBlurVQueries[queryWrite], GL_QUERY_RESULT, &ns);
+                        vMs = static_cast<float>(ns) / 1e6f;
+                    }
+                }
+                stats.gpuBlurMs = hMs + vMs;
+            }
             if (postQueryStarted[queryWrite]) {
                 GLint available = 0;
                 glGetQueryObjectiv(gpuPostQueries[queryWrite], GL_QUERY_RESULT_AVAILABLE, &available);
@@ -433,21 +702,19 @@ int main() {
             }
 
             shader.use();
-            shader.set("uView",            view);
-            shader.set("uProjection",      proj);
-            shader.set("uViewMode",        viewMode);
-            shader.set("uNear",            camera.nearPlane());
-            shader.set("uFar",             camera.farPlane());
-            shader.set("uHdriExposure",    cfg.hdri.exposure);
-            shader.set("uHdriRotMat",      hdriRotMat);
-            shader.set("uHdriFlipV",       cfg.hdri.flipV);
-            shader.set("uCamPos",          camera.position());
-            shader.set("uRoughness",       cfg.shading.roughness);
-            shader.set("uMetallic",        cfg.shading.metallic);
-            shader.set("uIOR",             cfg.shading.ior);
+            shader.setAt(pbrLocView,         view);
+            shader.setAt(pbrLocProjection,   proj);
+            shader.setAt(pbrLocViewMode,     viewMode);
+            shader.setAt(pbrLocNear,         camera.nearPlane());
+            shader.setAt(pbrLocFar,          camera.farPlane());
+            shader.setAt(pbrLocCamPos,       camera.position());
+            shader.setAt(pbrLocRoughness,    cfg.shading.roughness);
+            shader.setAt(pbrLocMetallic,     cfg.shading.metallic);
+            shader.setAt(pbrLocIOR,          cfg.shading.ior);
 
             const glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(geomMat)));
-            shader.set("uNormalMatrix", normalMatrix);
+            shader.setAt(pbrLocNormalMatrix, normalMatrix);
+            shader.setAt(pbrLocHdriRotMat,   hdriRotMat);
 
             Frustum frustum;
             frustum.update(proj * view);
@@ -459,10 +726,10 @@ int main() {
                 glDisable(GL_DEPTH_TEST);
                 glDepthMask(GL_FALSE);
                 skyShader.use();
-                skyShader.set("uInvVP",        invVP);
-                skyShader.set("uHdriRotMat",   hdriRotMat);
-                skyShader.set("uHdriExposure", cfg.hdri.exposure);
-                skyShader.set("uHdriFlipV",    cfg.hdri.flipV);
+                skyShader.setAt(skyLocInvVP,        invVP);
+                if (hdriDirty) skyShader.setAt(skyLocHdriRotMat, hdriRotMat);
+                skyShader.setAt(skyLocHdriExposure, cfg.hdri.exposure);
+                skyShader.setAt(skyLocHdriFlipV,    cfg.hdri.flipV);
                 skyTex.bind(0);
                 glBindVertexArray(blitVAO);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -472,7 +739,9 @@ int main() {
                 shader.use();
             }
 
-            skyTex.bind(1);  // HDRI on unit 1 for diffuse irradiance
+            glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, baker.irradianceTex);
+            glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, baker.prefilteredTex);
+            glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, baker.brdfLUT);
 
             int drawn = 0, total = 1;
             glm::vec3 geomCentre = glm::vec3(geomMat * glm::vec4(geom.centre(), 1.0f));
@@ -485,7 +754,7 @@ int main() {
             if (viewMode == 3) {
                 glDepthMask(GL_FALSE);
                 lineShader.use();
-                lineShader.set("uVP", proj * view);
+                lineShader.setAt(lineLocVP, proj * view);
                 glBindVertexArray(boxVAO);
                 glDrawArrays(GL_LINES, 0, 24);
                 glBindVertexArray(0);
@@ -495,41 +764,55 @@ int main() {
 
             glEndQuery(GL_TIME_ELAPSED);
             queryStarted[queryWrite] = true;
-            queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES;
 
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             glDisable(GL_POLYGON_OFFSET_LINE);
 
             // ── SSAO pass ─────────────────────────────────────────
-            glBeginQuery(GL_TIME_ELAPSED, gpuPostQueries[queryWrite]);
+            glBeginQuery(GL_TIME_ELAPSED, gpuSsaoQueries[queryWrite]);
             glBindFramebuffer(GL_FRAMEBUFFER, ssaoRt.fbo);
             glViewport(0, 0, AO_W, AO_H);
             glDisable(GL_DEPTH_TEST);
             ssaoShader.use();
-            ssaoShader.set("uProj",    proj);
-            ssaoShader.set("uInvProj", invProj);
-            ssaoShader.set("uRadius",  cfg.shading.ssaoRadius);
-            ssaoShader.set("uBias",    cfg.shading.ssaoBias);
+            ssaoShader.setAt(ssaoLocProj,    proj);
+            ssaoShader.setAt(ssaoLocInvProj, invProj);
+            ssaoShader.setAt(ssaoLocRadius,  cfg.shading.ssaoRadius);
+            ssaoShader.setAt(ssaoLocBias,    cfg.shading.ssaoBias);
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, rt.normalTex);
             glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, rt.depthTex);
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, noiseTex);
             glBindVertexArray(blitVAO);
             glDrawArrays(GL_TRIANGLES, 0, 3);
+            glEndQuery(GL_TIME_ELAPSED);
+            ssaoQueryStarted[queryWrite] = true;
 
-            // ── SSAO blur pass ────────────────────────────────────
-            glBindFramebuffer(GL_FRAMEBUFFER, blurRt.fbo);
+            // ── SSAO blur H pass ──────────────────────────────────
+            glBeginQuery(GL_TIME_ELAPSED, gpuBlurQueries[queryWrite]);
+            glBindFramebuffer(GL_FRAMEBUFFER, blurTmpRt.fbo);
             blurShader.use();
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, ssaoRt.tex);
             glDrawArrays(GL_TRIANGLES, 0, 3);
+            glEndQuery(GL_TIME_ELAPSED);
+            blurQueryStarted[queryWrite] = true;
+
+            // ── SSAO blur V pass ──────────────────────────────────
+            glBeginQuery(GL_TIME_ELAPSED, gpuBlurVQueries[queryWrite]);
+            glBindFramebuffer(GL_FRAMEBUFFER, blurRt.fbo);
+            blurVShader.use();
+            glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, blurTmpRt.tex);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
             glBindVertexArray(0);
+            glEndQuery(GL_TIME_ELAPSED);
+            blurVQueryStarted[queryWrite] = true;
 
             // ── Blit FBO → screen ──────────────────────────────────
+            glBeginQuery(GL_TIME_ELAPSED, gpuPostQueries[queryWrite]);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, win.width(), win.height());
             blitShader.use();
-            blitShader.set("uViewMode",    viewMode);
-            blitShader.set("uChannelView", channelView);
-            blitShader.set("uInvert",      invertColors);
+            blitShader.setAt(blitLocViewMode,    viewMode);
+            blitShader.setAt(blitLocChannelView, channelView);
+            blitShader.setAt(blitLocInvert,      invertColors);
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, rt.colorTex);
             glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, blurRt.tex);
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, rt.depthTex);
@@ -538,31 +821,52 @@ int main() {
             glBindVertexArray(0);
             glEndQuery(GL_TIME_ELAPSED);
             postQueryStarted[queryWrite] = true;
+            queryWrite = (queryWrite + 1) % GPU_QUERY_FRAMES;
 
             glEnable(GL_DEPTH_TEST);
 
-            // ── Histogram (throttled readback every 4 frames) ─────
-            {
-                static int  histTick = 0;
+            // ── Histogram (throttled readback every 4 frames, async PBO) ─────
+            if (!stats.benchmarkMode) {
+                static int     histFrames = 0;
+                static int     histTick   = 0;
                 static uint8_t histPx[256 * 144 * 3];
-                if (++histTick >= 4) {
-                    histTick = 0;
+                if (++histFrames >= 4) {
+                    histFrames = 0;
+                    const int cur  = histTick & 1;
+                    const int prev = cur ^ 1;
+
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, histFBO);
                     glBlitFramebuffer(0, 0, win.width(), win.height(),
                                       0, 0, 256, 144,
                                       GL_COLOR_BUFFER_BIT, GL_LINEAR);
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, histFBO);
-                    glReadPixels(0, 0, 256, 144, GL_RGB, GL_UNSIGNED_BYTE, histPx);
-                    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-                    uint32_t h[3][256]{};
-                    const uint8_t* p = histPx;
-                    for (int i = 0; i < 256 * 144; ++i, p += 3) {
-                        ++h[0][p[0]]; ++h[1][p[1]]; ++h[2][p[2]];
+                    glBindBuffer(GL_PIXEL_PACK_BUFFER, histPBOs[cur]);
+                    glReadPixels(0, 0, 256, 144, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+                    if (histTick > 0) {
+                        glBindBuffer(GL_PIXEL_PACK_BUFFER, histPBOs[prev]);
+                        const auto* ptr = static_cast<const uint8_t*>(
+                            glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY));
+                        if (ptr) {
+                            memcpy(histPx, ptr, sizeof(histPx));
+                            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+                        }
+                        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+                        uint32_t h[3][256]{};
+                        const uint8_t* p = histPx;
+                        for (int i = 0; i < 256 * 144; ++i, p += 3)
+                            ++h[0][p[0]], ++h[1][p[1]], ++h[2][p[2]];
+                        memcpy(stats.hist, h, sizeof(h));
+                        stats.histValid = 1;
+                    } else {
+                        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                     }
-                    memcpy(stats.hist, h, sizeof(h));
-                    stats.histValid = 1;
+                    ++histTick;
                 }
             }
 
@@ -605,9 +909,35 @@ int main() {
             stats.numObjects      = 1;
             stats.objects[0]      = {geom.name().c_str(), geom.triangleCount(), geom.indexCount()};
 
-            hud.beginFrame();
-            hud.draw(stats);
-            hud.endFrame();
+            if (stats.benchmarkMode) {
+                // Skip GPU_QUERY_FRAMES warm-up frames: ring buffer zeros + Metal PSO JIT.
+                static int warmup = GPU_QUERY_FRAMES;
+                if (warmup > 0) { --warmup; }
+                else {
+                    cpuTimes.push_back(stats.frameTimeMs);
+                    gpuGeomTimes.push_back(stats.gpuGeomMs);
+                    gpuSsaoTimes.push_back(stats.gpuSsaoMs);
+                    gpuBlurTimes.push_back(stats.gpuBlurMs);
+                    gpuPostTimes.push_back(stats.gpuPostMs);
+                    if (static_cast<int>(cpuTimes.size()) >= benchmarkN) break;
+                }
+            }
+
+            if (!stats.benchmarkMode) {
+                hud.beginFrame();
+                if (iblPending) {
+                    ImGui::SetNextWindowPos(ImVec2(win.width() * 0.5f - 55.0f, win.height() * 0.5f - 12.0f));
+                    ImGui::SetNextWindowBgAlpha(0.75f);
+                    ImGui::Begin("##baking", nullptr,
+                        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoNav |
+                        ImGuiWindowFlags_NoMove);
+                    ImGui::Text("Baking IBL...");
+                    ImGui::End();
+                }
+                hud.draw(stats);
+                hud.endFrame();
+            }
 
             // Merge native menu one-shot actions into stats, then sync checkmarks.
             if (menuFlags.doCapture)  { stats.doCapture  = true; menuFlags.doCapture  = false; }
@@ -653,19 +983,72 @@ int main() {
             }
 
             win.swapAndPoll();
+
+            if (iblPending) {
+                baker.bake(skyTex.id(), glm::mat3(1.f), cfg.hdri.exposure, cfg.hdri.flipV, cfg.render.iblSamples);
+                iblPending = false;
+            }
         }
 
+        if (benchmarkN > 0 && !cpuTimes.empty()) {
+            auto summarise = [](std::vector<float> v) {
+                std::sort(v.begin(), v.end());
+                float sum = std::accumulate(v.begin(), v.end(), 0.0f);
+                auto pct  = [&](float p) { return v[static_cast<size_t>(p * (v.size() - 1))]; };
+                return nlohmann::json{
+                    {"mean", sum / v.size()},
+                    {"p50",  pct(0.50f)},
+                    {"p95",  pct(0.95f)},
+                    {"p99",  pct(0.99f)},
+                    {"max",  pct(1.00f)},
+                };
+            };
+            float meanCpu = std::accumulate(cpuTimes.begin(), cpuTimes.end(), 0.0f) / cpuTimes.size();
+            nlohmann::json j = {
+                {"meanFps",    1000.0f / meanCpu},
+                {"cpuFrameMs", summarise(cpuTimes)},
+                {"gpuGeomMs",  summarise(gpuGeomTimes)},
+                {"gpuSsaoMs",  summarise(gpuSsaoTimes)},
+                {"gpuBlurMs",  summarise(gpuBlurTimes)},
+                {"gpuPostMs",  summarise(gpuPostTimes)},
+                {"config", {
+                    {"width",          BASE_W},
+                    {"height",         BASE_H},
+                    {"iblSamples",     cfg.render.iblSamples},
+                    {"ssaoSamples",    cfg.shading.ssaoSamples},
+                    {"ssaoHalfRes",    cfg.shading.ssaoHalfRes},
+                    {"ssaoBlurRadius", cfg.shading.ssaoBlurRadius},
+                }},
+            };
+            if (benchmarkOut.empty()) {
+                std::time_t t = std::time(nullptr);
+                char buf[32];
+                std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", std::localtime(&t));
+                benchmarkOut = std::string("benchmarks/") + buf + ".json";
+            }
+            std::ofstream f(benchmarkOut);
+            if (!f) { LOG_E("Could not open " + benchmarkOut + " for writing"); }
+            else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to " + benchmarkOut); }
+        }
+
+        baker.destroy();
         rt.destroy();
         ssaoRt.destroy();
         blurRt.destroy();
         glDeleteFramebuffers(1, &histFBO);
         glDeleteTextures(1, &histTex);
+        glDeleteBuffers(2, histPBOs);
         glDeleteTextures(1, &noiseTex);
+        glDeleteBuffers(1, &ssaoKernelUBO);
         glDeleteVertexArrays(1, &blitVAO);
         glDeleteVertexArrays(1, &boxVAO);
         glDeleteBuffers(1, &boxVBO);
         glDeleteQueries(GPU_QUERY_FRAMES, gpuQueries);
         glDeleteQueries(GPU_QUERY_FRAMES, gpuPostQueries);
+        glDeleteQueries(GPU_QUERY_FRAMES, gpuSsaoQueries);
+        glDeleteQueries(GPU_QUERY_FRAMES, gpuBlurQueries);
+        glDeleteQueries(GPU_QUERY_FRAMES, gpuBlurVQueries);
+        blurTmpRt.destroy();
 
     } catch (const std::exception& e) {
         LOG_E(std::string("Fatal: ") + e.what());
