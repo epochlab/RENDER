@@ -7,6 +7,7 @@
 #include <mach/mach.h>
 #include "exr_io.hpp"
 #include "color_pipeline.hpp"
+#include <stb_image_write.h>
 #include <stdexcept>
 #include <random>
 #include <string>
@@ -1027,6 +1028,7 @@ int main(int argc, char** argv) {
 
             // Merge native menu one-shot actions into stats, then sync checkmarks.
             if (menuFlags.doCaptureEXR) { stats.doCaptureEXR = true; menuFlags.doCaptureEXR = false; }
+            if (menuFlags.doCapturePNG) { stats.doCapturePNG = true; menuFlags.doCapturePNG = false; }
             if (menuFlags.doSaveJson) { stats.doSaveJson = true; menuFlags.doSaveJson = false; }
             if (menuFlags.showPanel != stats.showPanel)
                 stats.showPanel = menuFlags.showPanel;
@@ -1127,37 +1129,41 @@ int main(int argc, char** argv) {
                     return buf;
                 };
 
-                // Re-render a data pass into rt.fbo and read colorTex.
-                // The blit has already run so overwriting rt is safe; IBL units 3-5 remain bound.
-                auto render_aov = [&](int mode, const std::string& name) {
-                    shader.use();
-                    shader.setAt(pbrLocViewMode, mode);
-                    glBindFramebuffer(GL_FRAMEBUFFER, rt.fbo);
-                    glViewport(0, 0, BASE_W, BASE_H);
-                    glEnable(GL_DEPTH_TEST);
-                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    geom.draw(shader, geomMat);
-                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                    return read_rgb(rt.colorTex, name, 1.0f);
-                };
-
                 try {
                     write_exr_multilayer(fname, BASE_W, BASE_H, {
-                        read_rgb(rt.colorTex,  "beauty",         finalExposure),
-                        read_rgb(rt.normalTex, "normals",        1.0f),
+                        read_rgb(rt.colorTex,  "beauty",  finalExposure),
+                        read_rgb(rt.normalTex, "normals", 1.0f),
                         read_depth(rt.depthTex),
                         read_ao(blurRt.tex),
-                        render_aov(6,  "albedo"),
-                        render_aov(9,  "direct_diffuse"),
-                        render_aov(10, "direct_refl"),
                     });
                     LOG_I("Export OpenEXR: " + fname);
                 } catch (const std::exception& e) {
                     LOG_E("EXR save failed: " + std::string(e.what()));
                 }
                 stats.doCaptureEXR = false;
+            }
+
+            if (stats.doCapturePNG) {
+                const char* home = getenv("HOME");
+                std::string desktop = home ? std::string(home) + "/Desktop" : ".";
+                std::time_t t = std::time(nullptr);
+                std::string fname = desktop + "/KODAK_" + std::to_string(t) + ".png";
+
+                std::vector<unsigned char> pixels(static_cast<size_t>(BASE_W * BASE_H * 3));
+                glReadPixels(0, 0, BASE_W, BASE_H, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+                // Flip Y: OpenGL origin is bottom-left, PNG expects top-left.
+                std::vector<unsigned char> flipped(pixels.size());
+                for (int y = 0; y < BASE_H; ++y) {
+                    const int src_y = BASE_H - 1 - y;
+                    std::memcpy(flipped.data() + static_cast<size_t>(y * BASE_W * 3),
+                                pixels.data() + static_cast<size_t>(src_y * BASE_W * 3),
+                                static_cast<size_t>(BASE_W * 3));
+                }
+                if (stbi_write_png(fname.c_str(), BASE_W, BASE_H, 3, flipped.data(), BASE_W * 3))
+                    LOG_I("Export PNG: " + fname);
+                else
+                    LOG_E("PNG save failed: " + fname);
+                stats.doCapturePNG = false;
             }
 
             if (stats.doSaveJson) {

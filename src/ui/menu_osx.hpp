@@ -2,6 +2,7 @@
 
 struct OsxMenuFlags {
     bool doCaptureEXR = false;
+    bool doCapturePNG = false;
     bool doSaveJson = false;
     bool showPanel  = true;
 };

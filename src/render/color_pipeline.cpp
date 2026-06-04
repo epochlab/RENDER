@@ -30,7 +30,7 @@ void ColorPipeline::bake(ViewLut mode, int size) {
     OCIO::ConstCPUProcessorRcPtr cpu;
     try {
         auto proc = m_config->getProcessor(
-            "ACEScg", display, view, OCIO::TRANSFORM_DIR_FORWARD);
+            "lin_srgb", display, view, OCIO::TRANSFORM_DIR_FORWARD);
         cpu = proc->getDefaultCPUProcessor();
     } catch (const OCIO::Exception& e) {
         LOG_W("OCIO: getProcessor failed — " + std::string(e.what()));

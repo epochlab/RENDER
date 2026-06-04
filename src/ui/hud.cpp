@@ -89,23 +89,7 @@ void HUD::draw(FrameStats& s) {
         else if (s.channelView == 3) drawLabel("B", IM_COL32( 80, 140, 255, 230));
     }
 
-    // ── Floating restore button (visible only when panel is hidden) ──
-    if (!s.showPanel) {
-        const ImGuiWindowFlags btnFlags =
-            ImGuiWindowFlags_NoDecoration    |
-            ImGuiWindowFlags_NoNav           |
-            ImGuiWindowFlags_NoMove          |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_AlwaysAutoResize;
-        float dispW = ImGui::GetIO().DisplaySize.x;
-        ImGui::SetNextWindowPos({dispW - 46.0f, 10.0f}, ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.55f);
-        ImGui::Begin("##restore", nullptr, btnFlags);
-        if (ImGui::Button(" \xE2\x97\x88 "))   // UTF-8 ◈
-            s.showPanel = true;
-        ImGui::End();
-        return;
-    }
+    if (!s.showPanel) return;
 
     // ── Stats panel ───────────────────────────────────────────
     const ImGuiWindowFlags flags =
@@ -227,9 +211,9 @@ void HUD::draw(FrameStats& s) {
     }
 
     // ── Color ─────────────────────────────────────────────────
-    sectionHeader("Color");
+    sectionHeader("ViewerLUT");
     {
-        static const char* k_lutNames[] = { "Raw", "ACES sRGB", "ACES Rec.709" };
+        static const char* k_lutNames[] = { "RAW", "ACES sRGB", "ACES Rec.709" };
         int idx = s.viewLut;
         ImGui::SetNextItemWidth(-1.0f);
         if (ImGui::Combo("##viewlut", &idx, k_lutNames, 3)) {
@@ -391,7 +375,7 @@ void HUD::draw(FrameStats& s) {
     ImGui::SliderFloat("##hdriEv", &s.hdriEvOffset, -4.0f, 4.0f, "EV  %.2f");
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::SliderFloat("##hdriIntensity", &s.hdriIntensity, 0.0f, 5.0f, "Intensity  %.2f");
-    ImGui::Checkbox("Flip Y-axis", &s.hdriFlipV);
+    ImGui::Checkbox("Invert Y-axis", &s.hdriFlipV);
     ImGui::Checkbox("Enable Background", &s.skyVisible);
 
     ImGui::End();

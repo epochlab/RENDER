@@ -91,6 +91,7 @@ struct FrameStats {
     bool        skyVisible    = false;
     bool        showPanel     = true;
     bool        doCaptureEXR  = false;
+    bool        doCapturePNG  = false;
     bool        doSaveJson    = false;
 };
 

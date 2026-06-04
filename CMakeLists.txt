@@ -108,6 +108,7 @@ add_library(kodak_core STATIC
     src/render/exr_io.cpp
     src/render/color_pipeline.cpp
     external/stb/stb_image.cpp
+    external/stb/stb_image_write.cpp
 )
 target_include_directories(kodak_core PUBLIC
     src

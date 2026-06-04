@@ -87,6 +87,19 @@
         "Rec.1886 Rec.709 - Display", "ACES 1.0 - SDR Video")
 
  ---
+ Phase 4 Corrections (in progress)
+
+   src/render/color_pipeline.cpp -- OCIO source colorspace "ACEScg" → "lin_srgb" (renderer outputs
+        sRGB primaries linear; correct input space for ACES display transform)
+   src/ui/hud.cpp -- section title "Color" → "ViewerLUT"; label "Raw" → "RAW";
+        "Flip Y-axis" → "Invert Y-axis"; remove floating HUD restore button
+   src/main.cpp -- EXR export simplified to 4 AOVs (beauty, normals, depth, ao);
+        removed render_aov re-render passes; PNG export restored
+   src/ui/hud.hpp, menu_osx.hpp, menu_osx.mm -- doCapturePNG flag; "Export PNG" menu item
+   external/stb/stb_image_write.cpp -- recreated (was removed in Phase 3)
+   CMakeLists.txt -- stb_image_write.cpp re-added to build
+
+ ---
  Phase 5 — White Balance / Kelvin (planned)
 
    src/render/color_math.hpp -- kelvin_to_xy (Kim et al.), white_balance_gains (Bradford)

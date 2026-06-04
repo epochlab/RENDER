@@ -4,12 +4,14 @@
 @interface AppMenuDelegate : NSObject
 @property (nonatomic, assign) OsxMenuFlags* flags;
 - (void)actionCapture:(id)sender;
+- (void)actionCapturePNG:(id)sender;
 - (void)actionSaveJson:(id)sender;
 - (void)actionPanelToggle:(id)sender;
 @end
 
 @implementation AppMenuDelegate
 - (void)actionCapture:(id)sender     { _flags->doCaptureEXR = true; }
+- (void)actionCapturePNG:(id)sender  { _flags->doCapturePNG = true; }
 - (void)actionSaveJson:(id)sender    { _flags->doSaveJson = true; }
 - (void)actionPanelToggle:(id)sender { _flags->showPanel  = !_flags->showPanel;  }
 @end
@@ -43,6 +45,12 @@ void initOsxMenuBar(OsxMenuFlags* flags) {
                                                   keyEquivalent:@""];
     captureItem.target = g_delegate;
     [viewMenu addItem:captureItem];
+
+    NSMenuItem* capturePngItem = [[NSMenuItem alloc] initWithTitle:@"Export PNG"
+                                                            action:@selector(actionCapturePNG:)
+                                                     keyEquivalent:@""];
+    capturePngItem.target = g_delegate;
+    [viewMenu addItem:capturePngItem];
 
     NSMenuItem* jsonItem = [[NSMenuItem alloc] initWithTitle:@"Set JSON"
                                                       action:@selector(actionSaveJson:)
