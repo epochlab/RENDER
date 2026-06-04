@@ -118,14 +118,18 @@ struct SsaoTarget {
 };
 
 int main(int argc, char** argv) {
-    int benchmarkN = 0;
-    for (int i = 1; i + 1 < argc; ++i) {
-        if (std::string_view(argv[i]) == "--benchmark") {
+    int         benchmarkN   = 0;
+    std::string benchmarkOut;
+    for (int i = 1; i < argc; ++i) {
+        std::string_view arg(argv[i]);
+        if (arg == "--benchmark" && i + 1 < argc) {
             char* end = nullptr;
-            long v = std::strtol(argv[i + 1], &end, 10);
-            if (end == argv[i + 1] || *end != '\0' || v <= 0)
-                { fprintf(stderr, "Usage: --benchmark <N>  (N must be a positive integer)\n"); return 1; }
+            long v = std::strtol(argv[++i], &end, 10);
+            if (end == argv[i] || *end != '\0' || v <= 0)
+                { fprintf(stderr, "Usage: --benchmark <N> [--output <file>]\n"); return 1; }
             benchmarkN = static_cast<int>(v);
+        } else if (arg == "--output" && i + 1 < argc) {
+            benchmarkOut = argv[++i];
         }
     }
 
@@ -824,9 +828,15 @@ int main(int argc, char** argv) {
                     {"ssaoBlurRadius", cfg.shading.ssaoBlurRadius},
                 }},
             };
-            std::ofstream f("benchmarks/after-step4-separable-blur.json");
-            if (!f) { LOG_E("Could not open benchmarks/after-step4-separable-blur.json for writing"); }
-            else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to benchmarks/after-step4-separable-blur.json"); }
+            if (benchmarkOut.empty()) {
+                std::time_t t = std::time(nullptr);
+                char buf[32];
+                std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", std::localtime(&t));
+                benchmarkOut = std::string("benchmarks/") + buf + ".json";
+            }
+            std::ofstream f(benchmarkOut);
+            if (!f) { LOG_E("Could not open " + benchmarkOut + " for writing"); }
+            else    { f << j.dump(2) << '\n'; LOG_I("Benchmark written to " + benchmarkOut); }
         }
 
         rt.destroy();
