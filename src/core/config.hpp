@@ -50,6 +50,10 @@ struct AppConfig {
         std::string geometry = "assets/geo/rock_shopk_gltf_high/Rock_shopk_High.gltf";
         glm::vec3   rotation {};   // XYZ Euler degrees applied to loaded geometry
     } scene;
+
+    struct Color {
+        int viewLut = 1;  // 0=Raw  1=ACES_sRGB  2=ACES_Rec709
+    } color;
 };
 
 // Returns defaults when either file is absent or a key is missing.

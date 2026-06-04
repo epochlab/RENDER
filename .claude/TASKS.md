@@ -75,12 +75,16 @@
    ./build/KODAK -> Save EXR -> open in Nuke/Resolve, verify layer names
 
  ---
- Phase 4 — OCIO Display Transform (planned)
+ Phase 4 — OCIO Display Transform ✓ (fcd7b1f, 18b4f41)
 
-   src/render/color_pipeline.hpp/cpp -- bake 33^3 3D LUT from OCIO CG config v1 (ACES v1.3)
+   src/render/color_pipeline.hpp/cpp -- 33^3 LUT baked from OCIO CG config v1 (ACES v1.3)
    shaders/post/blit.frag -- uColorLUT (sampler3D), uLutEnabled; log2 shaper [-10, +10]
-   src/core/config.hpp -- Color { int viewLut=1; } (0=Raw 1=ACES_sRGB 2=ACES_Rec709)
+   src/core/config.hpp -- Color { viewLut } (0=Raw 1=ACES_sRGB 2=ACES_Rec709)
    src/ui/hud.cpp -- ViewLUT combo (Raw | ACES sRGB | ACES Rec.709)
+   src/main.cpp -- EXR export extended to 7 AOVs: beauty, normals, depth, ao, albedo, direct_diffuse, direct_refl
+
+   Fix: OCIO display/view names corrected to match cg-config-v1 ("sRGB - Display",
+        "Rec.1886 Rec.709 - Display", "ACES 1.0 - SDR Video")
 
  ---
  Phase 5 — White Balance / Kelvin (planned)

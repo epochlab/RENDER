@@ -32,6 +32,7 @@ struct RenderHarness {
     Texture iblIrradianceTex; // unit 3 — Texture::white()
     Texture iblPrefilteredTex;// unit 4 — Texture::white()
     Texture iblBrdfLutTex;    // unit 5 — Texture::white()
+    GLuint  lutTex3D = 0;     // unit 3 in blit pass — 1^3 white GL_TEXTURE_3D (uColorLUT stub)
 
     RenderHarness();
     ~RenderHarness();

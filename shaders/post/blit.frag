@@ -11,6 +11,8 @@ uniform bool      uInvert;       // invert colour values
 uniform float     uExposure;     // linear camera exposure multiplier
 uniform bool      uAspectEnabled;
 uniform float     uAspectRatio;  // e.g. 2.39
+uniform sampler3D uColorLUT;     // OCIO 3D display LUT (unit 3)
+uniform bool      uLutEnabled;   // false = Raw (no transform)
 
 out vec4 FragColor;
 
@@ -43,6 +45,13 @@ void main() {
         color = vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)),
                      d / (q.x + 1e-10), q.x);
     }
+    // OCIO display transform — beauty pass only, log2 shaper [-10, +10 stops].
+    if (uLutEnabled && uViewMode == 1) {
+        const float L2_MIN = -10.0, L2_MAX = 10.0;
+        vec3 s = (log2(max(color, vec3(1e-10))) - L2_MIN) / (L2_MAX - L2_MIN);
+        color = texture(uColorLUT, clamp(s, vec3(0.0), vec3(1.0))).rgb;
+    }
+
     if      (uChannelView == 1) color = vec3(color.r);
     else if (uChannelView == 2) color = vec3(color.g);
     else if (uChannelView == 3) color = vec3(color.b);

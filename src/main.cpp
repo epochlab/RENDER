@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <mach/mach.h>
 #include "exr_io.hpp"
+#include "color_pipeline.hpp"
 #include <stdexcept>
 #include <random>
 #include <string>
@@ -267,9 +268,10 @@ int main(int argc, char** argv) {
 
         Shader blitShader("shaders/post/blit.vert", "shaders/post/blit.frag");
         blitShader.use();
-        blitShader.set("uFrame", 0);
-        blitShader.set("uAO",    1);
-        blitShader.set("uDepth", 2);
+        blitShader.set("uFrame",    0);
+        blitShader.set("uAO",       1);
+        blitShader.set("uDepth",    2);
+        blitShader.set("uColorLUT", 3);
 
         Shader skyShader("shaders/sky/sky.vert", "shaders/sky/sky.frag");
         skyShader.use();
@@ -328,6 +330,7 @@ int main(int argc, char** argv) {
         const GLint blitLocExposure      = blitShader.uniformLoc("uExposure");
         const GLint blitLocAspectEnabled = blitShader.uniformLoc("uAspectEnabled");
         const GLint blitLocAspectRatio   = blitShader.uniformLoc("uAspectRatio");
+        const GLint blitLocLutEnabled    = blitShader.uniformLoc("uLutEnabled");
 
         const GLint dofLocNear          = dofShader.uniformLoc("uNear");
         const GLint dofLocFar           = dofShader.uniformLoc("uFar");
@@ -350,6 +353,9 @@ int main(int argc, char** argv) {
         g_camera = &camera;
 
         HUD hud(win.handle());
+
+        ColorPipeline colorPipeline;
+        colorPipeline.bake(static_cast<ViewLut>(cfg.color.viewLut));
 
         Texture skyTex(cfg.hdri.path);
         Model   geom = Model::loadGLTF(cfg.scene.geometry);
@@ -478,6 +484,7 @@ int main(int argc, char** argv) {
         stats.hdriEvOffset     = cfg.hdri.exposure;
         stats.skyVisible       = cfg.hdri.visible;
         stats.showPanel        = true;
+        stats.viewLut          = cfg.color.viewLut;
         stats.camISO           = cfg.camera.iso;
         stats.camFStop         = cfg.camera.fStop;
         stats.camShutterSpeed  = cfg.camera.shutterSpeed;
@@ -875,9 +882,11 @@ int main(int argc, char** argv) {
             }
             blitShader.setAt(blitLocAspectEnabled, stats.camAspectEnabled);
             blitShader.setAt(blitLocAspectRatio,   stats.camAspectRatio);
+            blitShader.setAt(blitLocLutEnabled,    colorPipeline.enabled());
             glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, blitColorTex);
             glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, blurRt.tex);
             glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, rt.depthTex);
+            glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_3D, colorPipeline.lut_tex());
             glBindVertexArray(blitVAO);
             glDrawArrays(GL_TRIANGLES, 0, 3);
             glBindVertexArray(0);
@@ -1022,6 +1031,12 @@ int main(int argc, char** argv) {
             if (menuFlags.showPanel != stats.showPanel)
                 stats.showPanel = menuFlags.showPanel;
 
+            if (stats.viewLutChanged) {
+                cfg.color.viewLut = stats.viewLut;
+                colorPipeline.bake(static_cast<ViewLut>(cfg.color.viewLut));
+                stats.viewLutChanged = false;
+            }
+
             viewMode             = stats.viewMode;
             cfg.hdri.rotation.y  = stats.hdriYawDeg;
             cfg.hdri.flipV       = stats.hdriFlipV;
@@ -1091,11 +1106,52 @@ int main(int argc, char** argv) {
                     return buf;
                 };
 
+                // Read single-channel AO (GL_R16F) and replicate to RGB.
+                auto read_ao = [&](GLuint tex) {
+                    AovBuffer buf;
+                    buf.name = "ao";
+                    buf.rgb.resize(static_cast<size_t>(BASE_W * BASE_H * 3));
+                    std::vector<float> tmp(static_cast<size_t>(BASE_W * BASE_H));
+                    glBindTexture(GL_TEXTURE_2D, tex);
+                    glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, tmp.data());
+                    for (int y = 0; y < BASE_H; ++y) {
+                        const int src_y = BASE_H - 1 - y;
+                        for (int x = 0; x < BASE_W; ++x) {
+                            const float v   = tmp[src_y * BASE_W + x];
+                            const int   dst = (y * BASE_W + x) * 3;
+                            buf.rgb[dst + 0] = v;
+                            buf.rgb[dst + 1] = v;
+                            buf.rgb[dst + 2] = v;
+                        }
+                    }
+                    return buf;
+                };
+
+                // Re-render a data pass into rt.fbo and read colorTex.
+                // The blit has already run so overwriting rt is safe; IBL units 3-5 remain bound.
+                auto render_aov = [&](int mode, const std::string& name) {
+                    shader.use();
+                    shader.setAt(pbrLocViewMode, mode);
+                    glBindFramebuffer(GL_FRAMEBUFFER, rt.fbo);
+                    glViewport(0, 0, BASE_W, BASE_H);
+                    glEnable(GL_DEPTH_TEST);
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    geom.draw(shader, geomMat);
+                    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                    return read_rgb(rt.colorTex, name, 1.0f);
+                };
+
                 try {
                     write_exr_multilayer(fname, BASE_W, BASE_H, {
-                        read_rgb(rt.colorTex,  "beauty",  finalExposure),
-                        read_rgb(rt.normalTex, "normals", 1.0f),
+                        read_rgb(rt.colorTex,  "beauty",         finalExposure),
+                        read_rgb(rt.normalTex, "normals",        1.0f),
                         read_depth(rt.depthTex),
+                        read_ao(blurRt.tex),
+                        render_aov(6,  "albedo"),
+                        render_aov(9,  "direct_diffuse"),
+                        render_aov(10, "direct_refl"),
                     });
                     LOG_I("Export OpenEXR: " + fname);
                 } catch (const std::exception& e) {
