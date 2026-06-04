@@ -7,10 +7,14 @@ struct AppConfig {
         glm::vec3 position   {0.f, 1.f, 10.f};
         float     yaw        = -90.f;
         float     pitch      =   0.f;
-        float     near       =   0.1f;
-        float     far        = 100.f;
-        float     filmback   =  35.f;
-        float     focalLength = 70.f;
+        float     near        =   0.1f;
+        float     far         = 100.f;
+        float     filmback    =  35.f;
+        float     focalLength =  70.f;
+        float     iso         = 100.f;
+        float     fStop       =   8.f;
+        float     shutterSpeed =  0.01f;
+        float     focusDist   =  10.f;
     } camera;
 
     struct Render {

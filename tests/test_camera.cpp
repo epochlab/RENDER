@@ -92,3 +92,47 @@ TEST_CASE("Camera setPitch clamps to [-89, +89]") {
     cam.setPitch(45.f);
     REQUIRE_THAT(cam.pitch(), WithinAbs(45.f, kEps));
 }
+
+// ── Exposure ──────────────────────────────────────────────────────────────────
+
+TEST_CASE("Camera exposure: ISO 100 / f8 / 1/100s → 1.0", "[camera]") {
+    Camera cam({0,0,0}, 1.78f);
+    cam.setISO(100.f);
+    cam.setFStop(8.f);
+    cam.setShutterSpeed(0.01f);
+    REQUIRE_THAT(cam.exposureValue(), WithinAbs(1.0f, 1e-5f));
+}
+
+TEST_CASE("Camera exposure: double ISO doubles exposure", "[camera]") {
+    Camera cam({0,0,0}, 1.78f);
+    cam.setISO(100.f); cam.setFStop(8.f); cam.setShutterSpeed(0.01f);
+    float e0 = cam.exposureValue();
+    cam.setISO(200.f);
+    REQUIRE_THAT(cam.exposureValue(), WithinAbs(2.f * e0, 1e-5f));
+}
+
+TEST_CASE("Camera exposure: double f-stop quarters exposure", "[camera]") {
+    Camera cam({0,0,0}, 1.78f);
+    cam.setISO(100.f); cam.setFStop(8.f); cam.setShutterSpeed(0.01f);
+    float e0 = cam.exposureValue();
+    cam.setFStop(16.f);
+    REQUIRE_THAT(cam.exposureValue(), WithinAbs(0.25f * e0, 1e-5f));
+}
+
+TEST_CASE("Camera exposure: double shutter doubles exposure", "[camera]") {
+    Camera cam({0,0,0}, 1.78f);
+    cam.setISO(100.f); cam.setFStop(8.f); cam.setShutterSpeed(0.01f);
+    float e0 = cam.exposureValue();
+    cam.setShutterSpeed(0.02f);
+    REQUIRE_THAT(cam.exposureValue(), WithinAbs(2.f * e0, 1e-5f));
+}
+
+TEST_CASE("Camera CoC scale: higher f-stop gives proportionally smaller scale", "[camera]") {
+    Camera cam({0,0,0}, 1.78f, 35.f, 50.f);
+    cam.setFStop(2.f);
+    float wide = cam.cocScale(2048.f);
+    cam.setFStop(16.f);
+    float narrow = cam.cocScale(2048.f);
+    // Doubling f-stop halves cocScale; here 16/2=8× difference expected.
+    REQUIRE_THAT(narrow, WithinAbs(wide / 8.f, 1e-3f));
+}

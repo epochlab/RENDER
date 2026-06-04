@@ -59,6 +59,11 @@ struct FrameStats {
     float     camFocalLengthMm = 31.2f;
     float     camNear         = 0.0f;
     float     camFar          = 0.0f;
+    float     camISO          = 100.f;
+    float     camFStop        =   8.f;
+    float     camShutterSpeed =   0.01f;
+    float     camFocusDist    =  10.f;
+    int       camAspectMode   =   0;    // 0=off 1=2.39:1 2=1.85:1
 
     // View mode
     int         viewMode      = 1;

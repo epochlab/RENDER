@@ -69,8 +69,12 @@ AppConfig loadConfig(const std::string& profilePath, const std::string& scenePat
         cfg.camera.pitch       = jf(c.value("pitch",       json(0.f)),   cfg.camera.pitch);
         cfg.camera.near        = jf(c.value("near",        json(0.1f)),  cfg.camera.near);
         cfg.camera.far         = jf(c.value("far",         json(100.f)), cfg.camera.far);
-        cfg.camera.filmback    = jf(c.value("filmback",    json(35.f)),  cfg.camera.filmback);
-        cfg.camera.focalLength = jf(c.value("focalLength", json(70.f)),  cfg.camera.focalLength);
+        cfg.camera.filmback     = jf(c.value("filmback",     json(35.f)),   cfg.camera.filmback);
+        cfg.camera.focalLength  = jf(c.value("focalLength",  json(70.f)),   cfg.camera.focalLength);
+        cfg.camera.iso          = jf(c.value("iso",          json(100.f)),  cfg.camera.iso);
+        cfg.camera.fStop        = jf(c.value("fStop",        json(8.f)),    cfg.camera.fStop);
+        cfg.camera.shutterSpeed = jf(c.value("shutterSpeed", json(0.01f)),  cfg.camera.shutterSpeed);
+        cfg.camera.focusDist    = jf(c.value("focusDist",    json(10.f)),   cfg.camera.focusDist);
     }
 
     if (sc.contains("hdri")) {
@@ -110,9 +114,13 @@ void saveConfig(const AppConfig& cfg, const std::string& scenePath) {
         }
     }
 
-    sc["camera"]["position"]    = ojson{cfg.camera.position.x, cfg.camera.position.y, cfg.camera.position.z};
-    sc["camera"]["focalLength"] = cfg.camera.focalLength;
-    sc["hdri"]["rotation"]      = ojson{cfg.hdri.rotation.x, cfg.hdri.rotation.y, cfg.hdri.rotation.z};
+    sc["camera"]["position"]     = ojson{cfg.camera.position.x, cfg.camera.position.y, cfg.camera.position.z};
+    sc["camera"]["focalLength"]  = cfg.camera.focalLength;
+    sc["camera"]["iso"]          = cfg.camera.iso;
+    sc["camera"]["fStop"]        = cfg.camera.fStop;
+    sc["camera"]["shutterSpeed"] = cfg.camera.shutterSpeed;
+    sc["camera"]["focusDist"]    = cfg.camera.focusDist;
+    sc["hdri"]["rotation"]       = ojson{cfg.hdri.rotation.x, cfg.hdri.rotation.y, cfg.hdri.rotation.z};
 
     std::ofstream f(scenePath);
     if (f.is_open())

@@ -89,6 +89,8 @@ RenderHarness::RenderHarness()
     blitShader->set("uDepth",       2);
     blitShader->set("uChannelView", 0);
     blitShader->set("uInvert",      false);
+    blitShader->set("uExposure",    1.0f);
+    blitShader->set("uAspectMode",  0);
 }
 
 RenderHarness::~RenderHarness() {

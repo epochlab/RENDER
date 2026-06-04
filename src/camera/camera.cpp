@@ -70,6 +70,18 @@ void Camera::processInput(GLFWwindow* window, float dt) {
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) m_pos.y -= spd;
 }
 
+float Camera::exposureValue() const {
+    // Normalised: ISO 100 / f8 / 1/100s → 1.0
+    // kRef = tRef * ISORef / NRef² = 0.01 * 100 / 64 = 0.015625
+    static constexpr float kRef = 0.015625f;
+    return (m_shutterSpeed * m_iso) / (m_fStop * m_fStop * kRef);
+}
+
+float Camera::cocScale(float imageWidthPx) const {
+    // CoC_px = cocScale * abs(linDepth - focusDist) / linDepth
+    return (imageWidthPx * m_focalLengthMm) / (m_fStop * m_filmbackMm);
+}
+
 void Camera::processMouseMove(double xpos, double ypos) {
     if (m_firstMouse) {
         m_lastX = xpos;

@@ -1,5 +1,6 @@
 #include "hud.hpp"
 #include <algorithm>
+#include <cmath>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -191,6 +192,51 @@ void HUD::draw(FrameStats& s) {
     sectionHeader("Lens");
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::SliderFloat("##focalLength", &s.camFocalLengthMm, 8.0f, 200.0f, "Focal Length  %.0f mm");
+
+    // ── Exposure ──────────────────────────────────────────────
+    sectionHeader("Exposure");
+    {
+        // ISO — display as integer stops (100, 200, 400 … 12800)
+        int isoIdx = static_cast<int>(std::log2(std::max(s.camISO, 1.f) / 100.f));
+        isoIdx = std::clamp(isoIdx, 0, 7);
+        if (ImGui::SliderInt("ISO", &isoIdx, 0, 7))
+            s.camISO = 100.f * std::pow(2.f, static_cast<float>(isoIdx));
+        const int isoStops[] = {100, 200, 400, 800, 1600, 3200, 6400, 12800};
+        ImGui::SameLine();
+        ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "%d", isoStops[isoIdx]);
+    }
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SliderFloat("f-stop", &s.camFStop, 1.0f, 22.0f, "f/%.1f", ImGuiSliderFlags_Logarithmic);
+    {
+        // Shutter speed slider (logarithmic, 1/8000–30 s); display as fraction when < 0.1 s
+        float shutterDisp = s.camShutterSpeed;
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::SliderFloat("Shutter", &shutterDisp, 1.f/8000.f, 30.f, "%.5f s", ImGuiSliderFlags_Logarithmic))
+            s.camShutterSpeed = shutterDisp;
+        if (s.camShutterSpeed < 0.1f)
+            ImGui::SameLine(), ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "1/%.0f", 1.f / s.camShutterSpeed);
+        else
+            ImGui::SameLine(), ImGui::TextColored({0.6f, 0.6f, 0.6f, 1.0f}, "%.2f s", s.camShutterSpeed);
+    }
+    {
+        // EV₁₀₀ read-out
+        float ev100 = std::log2((s.camFStop * s.camFStop) / s.camShutterSpeed)
+                    - std::log2(s.camISO / 100.f);
+        ImGui::Text("EV100  %.2f", ev100);
+    }
+
+    // ── Depth of Field ────────────────────────────────────────
+    sectionHeader("Depth of Field");
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::SliderFloat("Focus Dist", &s.camFocusDist, 0.1f, 100.f, "%.2f m", ImGuiSliderFlags_Logarithmic);
+
+    // ── Aspect Ratio ──────────────────────────────────────────
+    sectionHeader("Aspect Ratio");
+    {
+        const char* aspectNames[] = {"Off", "2.39:1 Scope", "1.85:1 Flat"};
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::Combo("Guides##aspect", &s.camAspectMode, aspectNames, 3);
+    }
 
     // ── AOV ───────────────────────────────────────────────────
     sectionHeader("AOV");
