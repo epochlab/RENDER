@@ -2,18 +2,29 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
+      "Bash(make:*)",
       "Bash(cmake:*)",
       "Bash(ctest:*)",
-      "Bash(pytest:*)",
-      "Bash(pip:*)",
-      "Bash(conda:*)",
       "Bash(brew:*)",
-      "Bash(ruff:*)",
-      "Bash(mypy:*)",
       "Bash(clang-tidy:*)",
       "Bash(clang-format:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/James/Documents/KODAK && AHEAD=$(git rev-list HEAD ^origin/main --count 2>/dev/null); [ \"$AHEAD\" -gt 0 ] 2>/dev/null && echo \"[${AHEAD} commit(s) ahead of origin/main — open a PR before wrapping up]\""
+          }
+        ]
+      }
+    ]
   }
 }
