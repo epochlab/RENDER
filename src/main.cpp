@@ -309,7 +309,8 @@ int main(int argc, char** argv) {
         const GLint pbrLocMetallic      = shader.uniformLoc("uMetallic");
         const GLint pbrLocIOR           = shader.uniformLoc("uIOR");
         const GLint pbrLocNormalMatrix  = shader.uniformLoc("uNormalMatrix");
-        const GLint pbrLocHdriRotMat    = shader.uniformLoc("uHdriRotMat");
+        const GLint pbrLocHdriRotMat     = shader.uniformLoc("uHdriRotMat");
+        const GLint pbrLocHdriIntensity  = shader.uniformLoc("uHdriIntensity");
 
         const GLint skyLocInvVP         = skyShader.uniformLoc("uInvVP");
         const GLint skyLocHdriRotMat    = skyShader.uniformLoc("uHdriRotMat");
@@ -483,7 +484,7 @@ int main(int argc, char** argv) {
         stats.camFocusDist     = cfg.camera.focusDist;
         stats.camDofEnabled    = cfg.render.dofEnabled;
         stats.camAspectEnabled = false;
-        stats.camAspectRatio   = 2.39f;
+        stats.camAspectRatio   = 2.35f;
         int    viewMode    = 1;
         int    channelView = 0;   // 0=off 1=R 2=G 3=B
         bool   invertColors = false;
@@ -562,7 +563,6 @@ int main(int argc, char** argv) {
 
         glm::vec3 cachedHdriAngles(std::numeric_limits<float>::max());
         glm::mat3 cachedHdriRot(1.f);
-        float     cachedHdriIntensity = std::numeric_limits<float>::max();
         bool      cachedHdriFlipV    = false;
         bool      hdriDirty          = false;
         bool      iblPending         = false;
@@ -577,12 +577,11 @@ int main(int argc, char** argv) {
                 glm::rotate(glm::mat4(1.f), rad.z, glm::vec3(0,0,1)) *
                 glm::rotate(glm::mat4(1.f), rad.y, glm::vec3(0,1,0)) *
                 glm::rotate(glm::mat4(1.f), rad.x, glm::vec3(1,0,0)));
-            cachedHdriAngles   = cfg.hdri.rotation;
-            cachedHdriIntensity = cfg.hdri.intensity;
-            cachedHdriFlipV    = cfg.hdri.flipV;
+            cachedHdriAngles = cfg.hdri.rotation;
+            cachedHdriFlipV  = cfg.hdri.flipV;
             skyShader.use();
             skyShader.set("uHdriRotMat", cachedHdriRot);
-            baker.bake(skyTex.id(), glm::mat3(1.f), cfg.hdri.intensity, cfg.hdri.flipV, cfg.render.iblSamples);
+            baker.bake(skyTex.id(), glm::mat3(1.f), 1.0f, cfg.hdri.flipV, cfg.render.iblSamples);
         }
 
         while (!win.shouldClose()) {
@@ -590,9 +589,8 @@ int main(int argc, char** argv) {
             float  dt  = static_cast<float>(now - lastTime);
             lastTime   = now;
 
-            hdriDirty = (cfg.hdri.rotation  != cachedHdriAngles
-                      || cfg.hdri.flipV     != cachedHdriFlipV
-                      || cfg.hdri.intensity != cachedHdriIntensity);
+            hdriDirty = (cfg.hdri.rotation != cachedHdriAngles
+                      || cfg.hdri.flipV    != cachedHdriFlipV);
             if (hdriDirty) {
                 if (cfg.hdri.rotation != cachedHdriAngles) {
                     const glm::vec3 hdriRotRad(
@@ -607,10 +605,6 @@ int main(int argc, char** argv) {
                 }
                 if (cfg.hdri.flipV != cachedHdriFlipV) {
                     cachedHdriFlipV = cfg.hdri.flipV;
-                    iblPending = true;
-                }
-                if (cfg.hdri.intensity != cachedHdriIntensity) {
-                    cachedHdriIntensity = cfg.hdri.intensity;
                     iblPending = true;
                 }
             }
@@ -752,7 +746,8 @@ int main(int argc, char** argv) {
 
             const glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(geomMat)));
             shader.setAt(pbrLocNormalMatrix, normalMatrix);
-            shader.setAt(pbrLocHdriRotMat,   hdriRotMat);
+            shader.setAt(pbrLocHdriRotMat,    hdriRotMat);
+            shader.setAt(pbrLocHdriIntensity, cfg.hdri.intensity);
 
             Frustum frustum;
             frustum.update(proj * view);
@@ -1067,7 +1062,7 @@ int main(int argc, char** argv) {
             win.swapAndPoll();
 
             if (iblPending) {
-                baker.bake(skyTex.id(), glm::mat3(1.f), cfg.hdri.intensity, cfg.hdri.flipV, cfg.render.iblSamples);
+                baker.bake(skyTex.id(), glm::mat3(1.f), 1.0f, cfg.hdri.flipV, cfg.render.iblSamples);
                 iblPending = false;
             }
         }

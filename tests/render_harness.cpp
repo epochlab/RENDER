@@ -80,7 +80,8 @@ RenderHarness::RenderHarness()
     pbrShader->set("uNear",  0.1f);
     pbrShader->set("uFar",  100.0f);
     pbrShader->set("uView",       glm::mat4(1.0f));
-    pbrShader->set("uHdriRotMat", glm::mat3(1.0f));
+    pbrShader->set("uHdriRotMat",    glm::mat3(1.0f));
+    pbrShader->set("uHdriIntensity", 1.0f);
 
     // ── Static blit uniforms ──────────────────────────────────────────────
     blitShader->use();

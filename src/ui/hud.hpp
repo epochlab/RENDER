@@ -65,7 +65,7 @@ struct FrameStats {
     float     camFocusDist    =  10.f;
     bool      camDofEnabled   = false;
     bool      camAspectEnabled = false;
-    float     camAspectRatio  =   2.39f;
+    float     camAspectRatio  =   2.35f;
 
     // View mode
     int         viewMode      = 1;

@@ -25,7 +25,8 @@ uniform float     uRoughness;      // PBR roughness: 0 = mirror, 1 = fully diffu
 uniform float     uMetallic;       // 0 = dielectric, 1 = metal
 uniform float     uIOR;            // index of refraction for dielectrics (default 1.5)
 uniform mat4      uView;           // view matrix — used to transform shading normal for SSAO
-uniform mat3      uHdriRotMat;     // HDRI rotation applied per-frame; flip/exposure are baked
+uniform mat3      uHdriRotMat;     // HDRI rotation applied per-frame
+uniform float     uHdriIntensity;  // runtime IBL brightness multiplier (applied post-bake)
 
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gNormal;  // view-space shading normals for SSAO
@@ -157,6 +158,6 @@ void main() {
         vec3  dir          = normalize(mix(r, n, a_sq));
         vec3  prefiltered  = textureLod(uPrefilteredTex, sampleEnvUV(dir), uRoughness * uMaxMipLevel).rgb;
         vec3  Ls           = F * prefiltered;
-        gColor = vec4(Ld + Ls, 1.0);
+        gColor = vec4((Ld + Ls) * uHdriIntensity, 1.0);
     }
 }
