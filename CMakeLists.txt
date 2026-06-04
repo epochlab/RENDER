@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(KODAK CXX OBJCXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "" FORCE)
+set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "" FORCE)
 
 find_package(OpenGL REQUIRED)
 
@@ -59,6 +59,27 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+FetchContent_Declare(openexr
+    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/openexr.git
+    GIT_TAG        v3.3.3
+    GIT_SHALLOW    TRUE
+)
+set(OPENEXR_BUILD_TOOLS    OFF CACHE BOOL "" FORCE)
+set(OPENEXR_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(OPENEXR_INSTALL        OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(openexr)
+
+FetchContent_Declare(OpenColorIO
+    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/OpenColorIO.git
+    GIT_TAG        v2.4.0
+    GIT_SHALLOW    TRUE
+)
+set(OCIO_BUILD_APPS             OFF CACHE BOOL   "" FORCE)
+set(OCIO_BUILD_TESTS            OFF CACHE BOOL   "" FORCE)
+set(OCIO_BUILD_PYTHON           OFF CACHE BOOL   "" FORCE)
+set(OCIO_INSTALL_EXT_PACKAGES MISSING CACHE STRING "" FORCE)
+FetchContent_MakeAvailable(OpenColorIO)
+
 add_library(imgui_lib STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -95,7 +116,7 @@ target_include_directories(kodak_core PUBLIC
     ${cgltf_SOURCE_DIR}
 )
 target_compile_definitions(kodak_core PUBLIC GL_SILENCE_DEPRECATION GLFW_INCLUDE_GLCOREARB)
-target_link_libraries(kodak_core PUBLIC OpenGL::GL glm::glm glfw nlohmann_json::nlohmann_json)
+target_link_libraries(kodak_core PUBLIC OpenGL::GL glm::glm glfw nlohmann_json::nlohmann_json OpenEXR::OpenEXR OpenColorIO)
 
 # ── Main application ──────────────────────────────────────────────────────────
 add_executable(KODAK
